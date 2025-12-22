@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* Step 3 of pipeline: Screening configuration with threshold visualization -->
+  .form-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .progress-header {
+    margin-bottom: 2rem;
+  }
+
+  .progress-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-title p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .progress-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .progress-indicator::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--border);
+    z-index: 0;
+  }
+
+  .progress-indicator::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary-accent);
+    z-index: 0;
+  }
+
+  .progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+  }
+
+  .progress-step.active .step-dot {
+    background-color: var(--warning);
+    color: white;
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.1);
+    font-size: 1.2rem;
+  }
+
+  .progress-step.completed .step-dot {
+    background-color: var(--success);
+    color: white;
+  }
+
+  .step-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .progress-step.active .step-label {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .progress-step.completed .step-label {
+    color: var(--success);
+  }
+
+  .form-card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    margin-bottom: 2rem;
+  }
+
+  .form-section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .form-section-icon {
+    width: 32px;
+    height: 32px;
+    background-color: rgba(245, 158, 11, 0.1);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+  }
+
+  .form-group {
+    margin-bottom: 2rem;
+  }
+
+  .form-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+  }
+
+  .label-required {
+    color: var(--danger);
+    font-weight: 700;
+  }
+
+  .label-optional {
+    color: var(--text-light);
+    font-size: 0.85rem;
+  }
+
+  /* Threshold Input with Visual */
+  .threshold-group {
+    background-color: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .threshold-input-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: flex-end;
+  }
+
+  .threshold-value-display {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-accent);
+    text-align: center;
+    padding: 0.5rem;
+    background-color: rgba(14, 165, 233, 0.05);
+    border-radius: 6px;
+    min-width: 80px;
+  }
+
+  .form-control[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #ef4444, #f59e0b, #10b981);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .form-control[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--primary-accent);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+    border: 3px solid white;
+  }
+
+  .form-control[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--primary-accent);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+    border: 3px solid white;
+  }
+
+  .threshold-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .threshold-info-item {
+    padding: 0.75rem;
+    background-color: var(--surface);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-accent);
+  }
+
+  .threshold-info-label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    font-weight: 500;
+  }
+
+  .threshold-info-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 0.25rem;
+  }
+
+  .info-box {
+    background-color: rgba(245, 158, 11, 0.05);
+    border-left: 4px solid var(--warning);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .info-box strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .info-box ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .info-box li {
+    margin-bottom: 0.5rem;
+  }
+
+  .form-text {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-light);
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-top: 2rem;
+  }
+
+  .form-actions .btn {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .btn-cancel {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .btn-cancel:hover {
+    background-color: var(--background);
+    border-color: var(--text-light);
+  }
+
+  @media (max-width: 768px) {
+    .form-card {
+      padding: 1.5rem;
+    }
+
+    .threshold-input-row {
+      grid-template-columns: 1fr;
+    }
+
+    .threshold-info {
+      grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+      flex-direction: column;
+    }
+
+    .form-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="progress-header">
+    <div class="progress-title">
+      <h1>Konfigurasi & Jalankan Screening</h1>
+      <p>Step 3 dari 3: Atur threshold dan mulai proses screening</p>
+    </div>
+  </div>
+
+  <!-- Progress Indicator -->
+  <div class="progress-indicator">
+    <div class="progress-step completed">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Sanction List</div>
+    </div>
+    <div class="progress-step completed">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Transaksi</div>
+    </div>
+    <div class="progress-step active">
+      <div class="step-dot">3</div>
+      <div class="step-label">Screening</div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="form-card">
+    <div class="form-section-title">
+      <div class="form-section-icon">⚙️</div>
+      Konfigurasi Parameter Screening
+    </div>
+
+    <div class="info-box">
+      <strong>Bagaimana Sistem Bekerja:</strong>
+      <ul style="margin-bottom: 0;">
+        <li>Sistem akan membandingkan data transaksi dengan sanction list</li>
+        <li>Setiap transaksi akan mendapat skor kesamaan untuk nama, DOB, dan kewarganegaraan</li>
+        <li>Jika skor akhir melebihi threshold yang anda tentukan, transaksi akan ditandai sebagai potential match</li>
+        <li>Gunakan threshold yang lebih tinggi untuk hasil yang lebih ketat, lebih rendah untuk hasil yang lebih luas</li>
+      </ul>
+    </div>
+
+    <form method="post">
+      <!-- Batch Selection -->
+      <div class="form-group">
+        <label class="form-label" for="batch_id">
+          Batch Transaksi
+          <span class="label-required">*</span>
+        </label>
+        <select name="batch_id" id="batch_id" class="form-select" required>
+          <option value="" disabled {{ 'selected' if not preselected_batch_id }}>-- Pilih Batch --</option>
+          {% for b in batches %}
+            <option value="{{ b.id }}"
+              {% if preselected_batch_id and preselected_batch_id == b.id %}selected{% endif %}>
+              #{{ b.id }} — {{ b.filename }} ({{ b.row_count }} baris, {{ b.created_at }})
+            </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih batch transaksi yang ingin di-screening</div>
+      </div>
+
+      <!-- Name Score Threshold -->
+      <div class="form-group">
+        <label class="form-label" for="threshold_name_score>Ambang Batas Skor Nama</label>
+        <div class="threshold-group">
+          <div class="threshold-input-row">
+            <input type="range" name="threshold_name_score" id="threshold_name_score" class="form-control" value="70" min="0" max="100" 
+                   oninput="updateThresholdDisplay(this, 'nameDisplay')">
+            <div class="threshold-value-display" id="nameDisplay">70%</div>
+          </div>
+          <div class="form-text">
+            Skor minimum kesamaan nama untuk dipertimbangkan. Range: 0-100%
+          </div>
+          <div class="threshold-info">
+            <div class="threshold-info-item">
+              <div class="threshold-info-label">Rekomendasi</div>
+              <div class="threshold-info-value">60-75%</div>
+            </div>
+            <div class="threshold-info-item">
+              <div class="threshold-info-label">Ketat (Sedikit False Positive)</div>
+              <div class="threshold-info-value">75-85%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Final Score Threshold -->
+      <div class="form-group">
+        <label class="form-label" for="threshold_score">Ambang Batas Skor Akhir</label>
+        <div class="threshold-group">
+          <div class="threshold-input-row">
+            <input type="range" name="threshold_score" id="threshold_score" class="form-control" value="60" min="0" max="100" 
+                   oninput="updateThresholdDisplay(this, 'finalDisplay')">
+            <div class="threshold-value-display" id="finalDisplay">60%</div>
+          </div>
+          <div class="form-text">
+            Skor gabungan minimum (nama + DOB + kewarganegaraan) agar dianggap potensial match
+          </div>
+          <div class="threshold-info">
+            <div class="threshold-info-item">
+              <div class="threshold-info-label">Luas (Banyak Hasil)</div>
+              <div class="threshold-info-value">40-50%</div>
+            </div>
+            <div class="threshold-info-item">
+              <div class="threshold-info-label">Rekomendasi</div>
+              <div class="threshold-info-value">50-65%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Officer Information -->
+      <div class="form-group">
+        <label class="form-label" for="created_by">
+          Nama Petugas
+          <span class="label-optional">(Opsional)</span>
+        </label>
+        <input type="text" name="created_by" id="created_by" class="form-control" placeholder="Nama petugas yang menjalankan screening">
+        <div class="form-text">Untuk audit trail dan pencatatan petugas</div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <a href="{{ url_for('web.transactions_upload') }}" class="btn btn-cancel">← Kembali ke Step 2</a>
+        <button type="submit" class="btn btn-warning">Jalankan Screening →</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="form-card" style="background-color: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.2);">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+      <div style="font-size: 1.5rem;">⏱️</div>
+      <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+        Estimasi Waktu Proses
+      </h3>
+    </div>
+    <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6;">
+      Waktu pemrosesan tergantung pada jumlah record transaksi dan sanction list yang tersimpan. 
+      Sistem akan menjalankan screening di background dan Anda dapat memantau progress di halaman Jobs.
+    </p>
+  </div>
+</div>
+
+<script>
+  function updateThresholdDisplay(input, displayId) {
+    document.getElementById(displayId).textContent = input.value + '%';
+  }
+</script>
+{% endblock %}

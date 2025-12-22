@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* Premium screening results with horizontal card navigation */
+  .result-header {
+    margin-bottom: 2rem;
+  }
+
+  .result-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  /* Job Summary Cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .summary-card {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+
+  .summary-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+
+  .summary-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-accent);
+  }
+
+  .summary-value.danger {
+    color: var(--danger);
+  }
+
+  /* Added horizontal scrollable transaction cards */
+  .results-container { margin-top: 2rem; }
+  .results-header { margin-bottom: 1.5rem; }
+  .results-header h2 { margin: 0; font-size: 1.3rem; font-weight: 600; color: var(--text-primary); }
+  .results-info { color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem; }
+  
+  /* Horizontal scrollable transaction cards */
+  .transaction-cards-container {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+    display: flex;
+    gap: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-accent) var(--background);
+  }
+  .transaction-cards-container::-webkit-scrollbar {
+    height: 8px;
+  }
+  .transaction-cards-container::-webkit-scrollbar-track {
+    background: var(--background);
+    border-radius: 4px;
+  }
+  .transaction-cards-container::-webkit-scrollbar-thumb {
+    background: var(--primary-accent);
+    border-radius: 4px;
+  }
+  
+  .transaction-card {
+    min-width: 300px;
+    flex-shrink: 0;
+    background-color: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: normal;
+  }
+  .transaction-card:hover {
+    border-color: var(--primary-accent);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+    transform: translateY(-2px);
+  }
+  .transaction-card.active {
+    border-color: var(--primary-accent);
+    background-color: rgba(14, 165, 233, 0.05);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+  }
+  .transaction-card-id {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  .transaction-card-names {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+  .transaction-card-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .transaction-card-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .transaction-card-matches {
+    display: inline-block;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  /* Simplified table with only name_score and final_score */
+  .results-section {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .results-table thead th {
+    background-color: var(--background);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .results-table tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    vertical-align: top;
+  }
+
+  .results-table tbody tr:hover {
+    background-color: rgba(14, 165, 233, 0.03);
+  }
+
+  .match-row-highlight {
+    background-color: rgba(239, 68, 68, 0.03);
+  }
+
+  .score-badge {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .score-high {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+
+  .score-medium {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  .score-low {
+    background-color: rgba(14, 165, 233, 0.1);
+    color: var(--primary-accent);
+  }
+
+  /* Collapsible score breakdown */
+  .score-cell {
+    position: relative;
+  }
+  .score-breakdown-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-accent);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.25rem 0;
+    margin-top: 0.25rem;
+    text-decoration: underline;
+    display: block;
+  }
+  .score-breakdown-toggle:hover {
+    color: var(--primary-accent-dark);
+  }
+  .score-breakdown {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background-color: var(--background);
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .score-breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    color: var(--text-secondary);
+  }
+  .score-breakdown-item strong {
+    color: var(--text-primary);
+  }
+
+  .entity-name {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .entity-meta {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+  }
+
+  .empty-results {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text-light);
+  }
+
+  .empty-results-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Action Buttons */
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .action-buttons .btn {
+    flex: 1;
+  }
+
+  @media (max-width: 768px) {
+    .result-header h1 {
+      font-size: 1.5rem;
+    }
+
+    .summary-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .transaction-card {
+      min-width: 250px;
+    }
+
+    .results-table {
+      font-size: 0.8rem;
+    }
+
+    .results-table thead th,
+    .results-table tbody td {
+      padding: 0.75rem 0.5rem;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+    }
+
+    .action-buttons .btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="result-header">
+  <h1>Hasil Screening – Job #{{ job.id }}</h1>
+  <p style="color: var(--text-secondary); margin: 0;">
+    Batch ID: {{ job.batch_id }} • Status: 
+    <span class="badge bg-{{ 'success' if job.status == 'SUCCESS' else ('danger' if job.status == 'FAILURE' else 'warning') }}">
+      {{ job.status }}
+    </span>
+  </p>
+</div>
+
+<!-- Summary Statistics -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-label">Total Transaksi</div>
+    <div class="summary-value">{{ job.total_transactions }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">Entitas Sanksi</div>
+    <div class="summary-value">{{ job.total_sanctions }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">Matches Ditemukan</div>
+    <div class="summary-value danger">{{ job.total_matches or 0 }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">Threshold Final</div>
+    <div class="summary-value" style="color: var(--warning);">{{ job.threshold_score or 0 }}%</div>
+  </div>
+</div>
+
+{% if results and results|length > 0 %}
+  <div class="results-container">
+    <div class="results-header">
+      <h2>Transaksi dengan Matches</h2>
+      <div class="results-info">
+        <span id="resultsInfo">Ditemukan <strong>{{ results|length }}</strong> matches di transaksi</span>
+      </div>
+    </div>
+
+    <!-- Horizontal scrollable transaction cards -->
+    <div class="transaction-cards-container" id="transactionCardsContainer">
+      <!-- Cards will be generated by JavaScript -->
+    </div>
+
+    <!-- Table for selected transaction's matches -->
+    <div class="results-section" id="resultsTableContainer">
+      <!-- Table will be generated by JavaScript -->
+    </div>
+  </div>
+{% else %}
+  <div class="results-section">
+    <div class="empty-results">
+      <div class="empty-results-icon">✓</div>
+      <h3 style="color: var(--text-secondary); margin-bottom: 0.5rem;">Tidak ada matches</h3>
+      <p>Semua transaksi di batch ini lolos screening tanpa menemukan kecocokan dengan sanction list.</p>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Action Buttons -->
+<div class="action-buttons">
+  <a href="{{ url_for('web.screening_jobs') }}" class="btn btn-outline-primary">← Kembali ke Daftar Jobs</a>
+  <a href="{{ url_for('web.index') }}" class="btn btn-secondary">Kembali ke Dashboard</a>
+  <button class="btn btn-primary" disabled style="opacity: 0.6;">Export Hasil (Coming Soon)</button>
+</div>
+
+<script>
+  
+  const rawResultsData = document.getElementById('results-data').textContent;
+  const rawResults = JSON.parse(rawResultsData) || [];  
+  // Group by transaction_id
+  const transactionGroups = {};
+  rawResults.forEach(result => {
+    const txId = result.transaction_id;
+    if (!transactionGroups[txId]) {
+      transactionGroups[txId] = {
+        transaction_id: txId,
+        sender_name: result.sender_name,
+        receiver_name: result.receiver_name,
+        matches: []
+      };
+    }
+    transactionGroups[txId].matches.push(result);
+  });
+
+  const transactions = Object.values(transactionGroups);
+  let selectedTransactionIndex = 0;
+
+  function initializeResults() {
+    if (transactions.length === 0) return;
+
+    const cardsContainer = document.getElementById('transactionCardsContainer');
+    cardsContainer.innerHTML = '';
+
+    // Generate cards for each transaction with matches
+    transactions.forEach((tx, index) => {
+      const card = document.createElement('div');
+      card.className = `transaction-card ${index === 0 ? 'active' : ''}`;
+      card.onclick = () => selectTransaction(index);
+      
+      card.innerHTML = `
+        <div class="transaction-card-id">TX #${tx.transaction_id}</div>
+        <div class="transaction-card-names">
+          <div class="transaction-card-label">Sender</div>
+          <div class="transaction-card-name">${tx.sender_name || 'N/A'}</div>
+          <div class="transaction-card-label" style="margin-top: 0.5rem;">Receiver</div>
+          <div class="transaction-card-name">${tx.receiver_name || 'N/A'}</div>
+        </div>
+        <div class="transaction-card-matches">${tx.matches.length} matches</div>
+      `;
+      
+      cardsContainer.appendChild(card);
+    });
+
+    // Display first transaction's matches
+    displayMatchesForTransaction(0);
+  }
+
+  function selectTransaction(index) {
+    selectedTransactionIndex = index;
+    
+    // Update active state on cards
+    const cards = document.querySelectorAll('.transaction-card');
+    cards.forEach((card, i) => {
+      card.classList.toggle('active', i === index);
+    });
+
+    // Display matches for selected transaction
+    displayMatchesForTransaction(index);
+  }
+
+  function displayMatchesForTransaction(index) {
+    const tx = transactions[index];
+    const tableContainer = document.getElementById('resultsTableContainer');
+    
+    let tableHTML = `
+      <div class="table-wrapper">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Nama (Sanksi)</th>
+              <th>Role</th>
+              <th>Skor Nama</th>
+              <th>Skor Akhir</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    tx.matches.forEach((match, matchIndex) => {
+      const uniqueId = `match-${index}-${matchIndex}`;
+      const nameScoreClass = getScoreClass(match.name_score);
+      const finalScoreClass = getScoreClass(match.final_score);
+      
+      tableHTML += `
+        <tr class="match-row-highlight">
+          <td>
+            <div class="entity-name">${match.sanction_name || 'N/A'}</div>
+          </td>
+          <td>
+            <span class="badge bg-secondary">${match.target_role || 'N/A'}</span>
+          </td>
+          <td>
+            <span class="score-badge ${nameScoreClass}">${(match.name_score || 0).toFixed(1)}%</span>
+          </td>
+          <td class="score-cell">
+            <span class="score-badge ${finalScoreClass}"><strong>${(match.final_score || 0).toFixed(1)}%</strong></span>
+            <button class="score-breakdown-toggle" onclick="toggleScoreBreakdown('${uniqueId}')">Lihat Detail</button>
+            <div id="breakdown-${uniqueId}" class="score-breakdown" style="display: none;">
+              <div class="score-breakdown-item">
+                <span>Skor Nama:</span>
+                <strong>${(match.name_score || 0).toFixed(1)}%</strong>
+              </div>
+              <div class="score-breakdown-item">
+                <span>Skor DOB:</span>
+                <strong>${(match.dob_score || 0).toFixed(1)}%</strong>
+              </div>
+              <div class="score-breakdown-item">
+                <span>Skor Citizenship:</span>
+                <strong>${(match.citizenship_score || 0).toFixed(1)}%</strong>
+              </div>
+              <div class="score-breakdown-item" style="border-top: 1px solid var(--border); margin-top: 0.5rem; padding-top: 0.5rem;">
+                <span><strong>Skor Akhir:</strong></span>
+                <strong style="color: var(--danger);">${(match.final_score || 0).toFixed(1)}%</strong>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tableHTML += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    tableContainer.innerHTML = tableHTML;
+  }
+
+  function toggleScoreBreakdown(uniqueId) {
+    const breakdown = document.getElementById(`breakdown-${uniqueId}`);
+    if (breakdown.style.display === 'none') {
+      breakdown.style.display = 'block';
+    } else {
+      breakdown.style.display = 'none';
+    }
+  }
+
+  function getScoreClass(score) {
+    if (score >= 70) return 'score-high';
+    if (score >= 40) return 'score-medium';
+    return 'score-low';
+  }
+
+  // Initialize on page load
+  if (transactions.length > 0) {
+    initializeResults();
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* Bulk Screening Wizard - Step 2: Konfirmasi & Eksekusi */
+  .wizard-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .wizard-header {
+    margin-bottom: 2rem;
+  }
+
+  .wizard-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .wizard-title p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* Progress Indicator - 3 Steps */
+  .progress-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    position: relative;
+  }
+
+  .progress-indicator::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--border);
+    z-index: 0;
+  }
+
+  .progress-indicator::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    width: 66.66%;
+    height: 2px;
+    background-color: var(--primary-accent);
+    z-index: 0;
+  }
+
+  .progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+  }
+
+  .progress-step.active .step-dot {
+    background-color: var(--warning);
+    color: white;
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.1);
+  }
+
+  .progress-step.completed .step-dot {
+    background-color: var(--success);
+    color: white;
+  }
+
+  .step-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 80px;
+  }
+
+  .progress-step.active .step-label {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .progress-step.completed .step-label {
+    color: var(--success);
+  }
+
+  /* Summary Cards */
+  .summary-section {
+    background-color: rgba(14, 165, 233, 0.04);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .summary-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .summary-icon {
+    width: 32px;
+    height: 32px;
+    background-color: rgba(14, 165, 233, 0.15);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+  }
+
+  .summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    border-left: 3px solid var(--primary-accent);
+  }
+
+  .summary-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .summary-label {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .summary-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary-accent);
+    text-align: right;
+  }
+
+  .warning-box {
+    background-color: rgba(245, 158, 11, 0.05);
+    border-left: 4px solid var(--warning);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .warning-box strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .warning-box ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .warning-box li {
+    margin-bottom: 0.5rem;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-top: 2rem;
+  }
+
+  .form-actions .btn {
+    flex: 1;
+    padding: 0.75rem 1.5rem;
+  }
+
+  .btn-submit {
+    background-color: var(--warning);
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .btn-submit:hover {
+    background-color: #d97706;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+
+  .btn-back {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+
+  .btn-back:hover {
+    background-color: var(--background);
+  }
+
+  @media (max-width: 768px) {
+    .summary-section {
+      padding: 1.5rem;
+    }
+
+    .summary-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .summary-value {
+      text-align: left;
+    }
+
+    .form-actions {
+      flex-direction: column;
+    }
+
+    .form-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <div class="wizard-header">
+    <div class="wizard-title">
+      <h1>Bulk Screening Wizard</h1>
+      <p>Step 2 dari 3: Review & Jalankan Screening</p>
+    </div>
+  </div>
+
+  <!-- Progress Indicator -->
+  <div class="progress-indicator">
+    <div class="progress-step completed">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Upload & Konfigurasi</div>
+    </div>
+    <div class="progress-step active">
+      <div class="step-dot">2</div>
+      <div class="step-label">Konfirmasi</div>
+    </div>
+    <div class="progress-step">
+      <div class="step-dot">3</div>
+      <div class="step-label">Progress</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-section">
+    <div class="summary-title">
+      <div class="summary-icon">📊</div>
+      Ringkasan Screening
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">File Transaksi</span>
+      <span class="summary-value">transaction_batch_001.txt</span>
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">Total Records</span>
+      <span class="summary-value">5,000 baris</span>
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">Sanction List</span>
+      <span class="summary-value">Database (Dec 2025)</span>
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">Sanction Entities</span>
+      <span class="summary-value">12,543 entities</span>
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">Final Score Threshold</span>
+      <span class="summary-value">60%</span>
+    </div>
+
+    <div class="summary-item">
+      <span class="summary-label">Estimasi Waktu</span>
+      <span class="summary-value">2-5 menit</span>
+    </div>
+  </div>
+
+  <!-- Warning -->
+  <div class="warning-box">
+    <strong>⚠️ Sebelum Memulai Screening:</strong>
+    <ul style="margin-bottom: 0;">
+      <li>Pastikan data transaksi sudah diverifikasi dan benar</li>
+      <li>Tidak ada proses screening lain yang sedang berjalan untuk batch ini</li>
+      <li>Anda dapat memantau progress di halaman Jobs setelah diklik "RUN SCREENING"</li>
+      <li>Jangan refresh atau tutup halaman sebelum screening selesai</li>
+    </ul>
+  </div>
+
+  <!-- Form -->
+  <form method="post" action="{{ url_for('web.wizard_execute') }}">
+    <div class="form-actions">
+      <a href="{{ url_for('web.wizard_upload') }}" class="btn btn-back">← Kembali ke Step 1</a>
+      <button type="submit" class="btn btn-submit">🚀 RUN SCREENING</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

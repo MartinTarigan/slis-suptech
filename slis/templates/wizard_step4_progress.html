@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* Bulk Screening Wizard - Step 3: Live Progress */
+  .wizard-container {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .wizard-header {
+    margin-bottom: 2rem;
+  }
+
+  .wizard-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .wizard-title p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  /* Progress Indicator - 3 Steps */
+  .progress-indicator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    position: relative;
+  }
+
+  .progress-indicator::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--border);
+    z-index: 0;
+  }
+
+  .progress-indicator::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary-accent);
+    z-index: 0;
+  }
+
+  .progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+  }
+
+  .progress-step.active .step-dot {
+    background-color: var(--success);
+    color: white;
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.1);
+  }
+
+  .progress-step.completed .step-dot {
+    background-color: var(--success);
+    color: white;
+  }
+
+  .step-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 80px;
+  }
+
+  .progress-step.active .step-label {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .progress-step.completed .step-label {
+    color: var(--success);
+  }
+
+  /* Progress Display */
+  .progress-section {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .progress-animation {
+    margin-bottom: 2rem;
+  }
+
+  .progress-spinner {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    display: inline-block;
+  }
+
+  .spinner-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 4px solid rgba(14, 165, 233, 0.1);
+    border-top: 4px solid var(--primary-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .progress-spinner-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary-accent);
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 12px;
+    background-color: var(--background);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-accent), var(--secondary));
+    border-radius: 6px;
+    animation: gradientShift 2s ease infinite;
+    width: 35%;
+    transition: width 0.3s ease;
+  }
+
+  @keyframes gradientShift {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .progress-text {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-label {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 0;
+  }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .stat-card {
+    background-color: var(--background);
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary-accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    font-weight: 500;
+  }
+
+  /* Completion Message */
+  .completion-message {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .completion-message.show {
+    display: block;
+    animation: fadeIn 0.5s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .completion-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    animation: bounce 0.6s ease;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .completion-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--success);
+    margin-bottom: 0.5rem;
+  }
+
+  .completion-subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  .result-summary {
+    background-color: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+  }
+
+  .result-summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+  }
+
+  .result-summary-item:last-child {
+    border-bottom: none;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-direction: column;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .progress-section {
+      padding: 1.5rem;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .result-summary {
+      padding: 1rem;
+    }
+
+    .result-summary-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .action-buttons {
+      gap: 0.5rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <div class="wizard-header">
+    <div class="wizard-title">
+      <h1>Bulk Screening Wizard</h1>
+      <p>Step 3 dari 3: Proses Screening Berjalan</p>
+    </div>
+  </div>
+
+  <!-- Progress Indicator -->
+  <div class="progress-indicator">
+    <div class="progress-step completed">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Upload & Konfigurasi</div>
+    </div>
+    <div class="progress-step completed">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Konfirmasi</div>
+    </div>
+    <div class="progress-step active">
+      <div class="step-dot">✓</div>
+      <div class="step-label">Progress</div>
+    </div>
+  </div>
+
+  <!-- Progress Display -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-animation">
+      <div class="progress-spinner">
+        <div class="spinner-ring"></div>
+        <div class="progress-spinner-label">35%</div>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progressBarFill" style="width: 35%;"></div>
+    </div>
+
+    <div class="progress-text" id="progressPercent">35%</div>
+    <p class="progress-label" id="progressLabel">Processing records 1,750 dari 5,000...</p>
+
+    <!-- Live Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="processedCount">1,750</div>
+        <div class="stat-label">Diproses</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="matchesCount">12</div>
+        <div class="stat-label">Matches</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="elapsedTime">1:25</div>
+        <div class="stat-label">Waktu</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completion Message (Hidden Initially) -->
+  <div class="completion-message" id="completionMessage">
+    <div class="completion-icon">✓</div>
+    <h2 class="completion-title">Screening Selesai!</h2>
+    <p class="completion-subtitle">Semua transaksi telah diproses dengan sukses.</p>
+
+    <div class="result-summary">
+      <div class="result-summary-item">
+        <span>Total Transaksi Diproses</span>
+        <strong>5,000</strong>
+      </div>
+      <div class="result-summary-item">
+        <span>Total Matches Ditemukan</span>
+        <strong style="color: var(--danger);">42</strong>
+      </div>
+      <div class="result-summary-item">
+        <span>Total Waktu Proses</span>
+        <strong>4 menit 32 detik</strong>
+      </div>
+      <div class="result-summary-item">
+        <span>Sanction List Version</span>
+        <strong>Dec 2025</strong>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <a href="{{ url_for('web.screening_jobs') }}" class="btn btn-primary">Lihat Detail Hasil</a>
+      <a href="{{ url_for('web.index') }}" class="btn btn-outline-primary">Kembali ke Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simulasi progress (di production, replace dengan real-time polling)
+  let progress = 35;
+  let elapsedSeconds = 85;
+  let matches = 12;
+  let processed = 1750;
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function updateProgress() {
+    if (progress < 100) {
+      // Increment progress dengan variasi untuk realistic feel
+      const increment = Math.random() * 5 + 1;
+      progress = Math.min(100, progress + increment);
+
+      // Update UI
+      document.getElementById('progressPercent').textContent = Math.round(progress) + '%';
+      document.getElementById('progressBarFill').style.width = progress + '%';
+      document.querySelector('.progress-spinner-label').textContent = Math.round(progress) + '%';
+
+      // Update stats
+      processed = Math.round(5000 * (progress / 100));
+      matches = Math.round(42 * (progress / 100));
+      elapsedSeconds++;
+
+      document.getElementById('processedCount').textContent = processed.toLocaleString();
+      document.getElementById('matchesCount').textContent = matches;
+      document.getElementById('elapsedTime').textContent = formatTime(elapsedSeconds);
+      document.getElementById('progressLabel').textContent = `Processing records ${processed.toLocaleString()} dari 5,000...`;
+
+      setTimeout(updateProgress, 500);
+    } else {
+      // Screening complete!
+      document.getElementById('progressSection').style.display = 'none';
+      document.getElementById('completionMessage').classList.add('show');
+    }
+  }
+
+  // Start progress simulation
+  updateProgress();
+</script>
+{% endblock %}

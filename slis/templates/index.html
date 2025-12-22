@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  /* Landing page (The Lobby) - Clean, action-focused design */
+  .lobby-container {
+    min-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+    padding: 2rem;
+  }
+
+  .lobby-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    max-width: 600px;
+  }
+
+  .lobby-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.5px;
+  }
+
+  .lobby-header p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .lobby-tagline {
+    display: inline-block;
+    background-color: rgba(14, 165, 233, 0.1);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: 20px;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--primary-accent);
+    margin-bottom: 1.5rem;
+  }
+
+  /* Hero Actions Grid */
+  .lobby-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+    max-width: 900px;
+  }
+
+  .hero-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 2.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-accent), var(--secondary));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+
+  .hero-card:hover {
+    border-color: var(--primary-accent);
+    box-shadow: 0 12px 32px rgba(14, 165, 233, 0.15);
+    transform: translateY(-4px);
+  }
+
+  .hero-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .hero-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1.5rem;
+    display: block;
+  }
+
+  .hero-card h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .hero-card p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.75rem;
+  }
+
+  .hero-card .btn {
+    width: 100%;
+    padding: 0.8rem 1.5rem;
+    font-weight: 600;
+  }
+
+  .hero-card.bulk-screening .btn {
+    background-color: var(--primary-accent);
+    color: white;
+  }
+
+  .hero-card.bulk-screening .btn:hover {
+    background-color: #0284c7;
+  }
+
+  .hero-card.quick-search .btn {
+    background-color: var(--secondary);
+    color: white;
+  }
+
+  .hero-card.quick-search .btn:hover {
+    background-color: #4f46e5;
+  }
+
+  /* Version Badge - Bottom Right */
+  .version-widget {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    max-width: 250px;
+  }
+
+  .version-widget-title {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+  }
+
+  .version-widget-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .version-info {
+    flex: 1;
+  }
+
+  .version-label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+  }
+
+  .version-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .version-badge {
+    display: inline-block;
+    background-color: var(--success);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .btn-update-list {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .btn-update-list:hover {
+    background-color: var(--background);
+    border-color: var(--text-light);
+  }
+
+  /* Quick Stats */
+  .lobby-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+    max-width: 900px;
+    padding: 2rem;
+    background: rgba(14, 165, 233, 0.04);
+    border: 1px solid rgba(14, 165, 233, 0.1);
+    border-radius: 12px;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary-accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .lobby-container {
+      padding: 1.5rem;
+    }
+
+    .lobby-header h1 {
+      font-size: 2rem;
+    }
+
+    .lobby-header p {
+      font-size: 0.95rem;
+    }
+
+    .lobby-actions {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .hero-card {
+      padding: 2rem;
+    }
+
+    .hero-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .hero-card h2 {
+      font-size: 1.2rem;
+    }
+
+    .version-widget {
+      position: relative;
+      bottom: auto;
+      right: auto;
+      margin-top: 2rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .lobby-stats {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .lobby-header h1 {
+      font-size: 1.5rem;
+    }
+
+    .hero-card {
+      padding: 1.5rem;
+    }
+
+    .hero-card h2 {
+      font-size: 1rem;
+    }
+
+    .hero-card p {
+      font-size: 0.85rem;
+    }
+
+    .lobby-stats {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lobby-container">
+  <!-- Header -->
+  <div class="lobby-header">
+    <div class="lobby-tagline">Sistem Keamanan Pembayaran</div>
+    <h1>Sanction List Intelligence Screening</h1>
+    <p>Lakukan screening nama, DOB, dan citizenship nasabah terhadap sanction list dengan akurat dan cepat.</p>
+  </div>
+
+  <!-- Main Actions -->
+  <div class="lobby-actions">
+    <!-- Quick Search -->
+    <div class="hero-card quick-search">
+      <span class="hero-icon">🔍</span>
+      <h2>Quick Search</h2>
+      <p>Screening instan untuk satu nasabah. Ketik nama dan dapatkan hasil langsung.</p>
+      <a href="{{ url_for('web.search_by_name') }}" class="btn">Mulai Pencarian</a>
+    </div>
+
+    <!-- Bulk Screening -->
+    <div class="hero-card bulk-screening">
+      <span class="hero-icon">📊</span>
+      <h2>Bulk Screening</h2>
+      <p>Upload file batch transaksi dan jalankan screening otomatis untuk ribuan records.</p>
+      <a href="{{ url_for('web.sanctions_upload') }}" class="btn">Mulai Screening</a>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="lobby-stats">
+    <div class="stat-item">
+      <div class="stat-value">{{ sanction_count or 0 }}</div>
+      <div class="stat-label">Entitas Sanksi</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">{{ batch_count or 0 }}</div>
+      <div class="stat-label">Batch Terproses</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">{{ job_count or 0 }}</div>
+      <div class="stat-label">Screening Jobs</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">{{ total_matches or 0 }}</div>
+      <div class="stat-label">Matches Ditemukan</div>
+    </div>
+  </div>
+</div>
+
+<!-- Version Widget (Bottom Right) -->
+<div class="version-widget">
+  <div class="version-widget-title">Sanction List Status</div>
+  <div class="version-widget-content">
+    <div class="version-info">
+      <div class="version-label">Version</div>
+      <div class="version-value">Dec 2025</div>
+      <div style="margin-top: 0.5rem;">
+        <span class="version-badge">Updated 2h ago</span>
+      </div>
+    </div>
+    <button class="btn-update-list" onclick="alert('Update functionality coming soon')">Update List</button>
+  </div>
+</div>
+{% endblock %}
