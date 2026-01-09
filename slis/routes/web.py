@@ -196,7 +196,7 @@ def screening_start():
         db.close()
 
 
-@web_bp.route("/sanctions/upload", methods=["GET", "POST"])
+@web_bp.route("/sanctions/update", methods=["GET", "POST"])
 def sanctions_upload_reference():
     db = SessionLocal()
     try:
@@ -226,7 +226,7 @@ def sanctions_upload_reference():
                 flash(f"Error import sanction: {e}", "danger")
                 return redirect(request.url)
 
-        return render_template("sanctions_upload.html", sources=sources)
+        return render_template("wizard_step1_upload.html", sources=sources)
     finally:
         db.close()
 
@@ -294,7 +294,7 @@ def screening_job_detail(job_id: int):
     finally:
         db.close()
 
-@web_bp.route("/search", methods=["GET"])
+@web_bp.route("/search", methods=["GET", "POST"])
 def search_by_name():
     db = SessionLocal()
     try:
@@ -331,3 +331,8 @@ def search_by_name():
         )
     finally:
         db.close()
+
+@web_bp.route('/geo-management')
+def geo_management():
+    """Halaman Dashboard untuk Geo Risk Management."""
+    return render_template('geo_management.html')

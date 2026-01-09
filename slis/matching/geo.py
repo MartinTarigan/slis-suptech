@@ -1,5 +1,12 @@
 from typing import Dict, Any, List
+from slis.db import SessionLocal
+from slis.models import GeoRiskCountry
 
+# ==========================================
+# 1. STATIC DATA (NORMALIZATION LAYER)
+# Biarkan ini HARDCODED. Ini hanya kamus nama negara -> ISO Code.
+# Data ini jarang berubah.
+# ==========================================
 
 COUNTRY_DATA = [
     { 'code': 'AF', 'code3': 'AFG', 'nameEn': 'Afghanistan', 'nameId': 'Afganistan' },
@@ -87,7 +94,7 @@ COUNTRY_DATA = [
     { 'code': 'IT', 'code3': 'ITA', 'nameEn': 'Italy', 'nameId': 'Italia' },
     { 'code': 'JM', 'code3': 'JAM', 'nameEn': 'Jamaica', 'nameId': 'Jamaika' },
     { 'code': 'JP', 'code3': 'JPN', 'nameEn': 'Japan', 'nameId': 'Jepang' },
-    { 'code': 'JO', 'code3': 'JOR', 'nameEn': 'Jordan', 'nameId': 'Yordania' },
+    { 'code': 'JO', 'code3:': 'JOR', 'nameEn': 'Jordan', 'nameId': 'Yordania' },
     { 'code': 'KZ', 'code3': 'KAZ', 'nameEn': 'Kazakhstan', 'nameId': 'Kazakhstan' },
     { 'code': 'KE', 'code3': 'KEN', 'nameEn': 'Kenya', 'nameId': 'Kenya' },
     { 'code': 'KI', 'code3': 'KIR', 'nameEn': 'Kiribati', 'nameId': 'Kiribati' },
@@ -208,37 +215,18 @@ for c in COUNTRY_DATA:
     display_name = c['nameEn']
     
     keys = [
-        c['code'].lower(),
-        c['code3'].lower(),
-        c['nameEn'].lower(),
-        c['nameId'].lower()
+        c.get('code', '').lower(),
+        c.get('code3', '').lower(), 
+        c.get('nameEn', '').lower(),
+        c.get('nameId', '').lower()
     ]
     
-    DISPLAY_MAP[iso2] = display_name
-    
-    for k in keys:
-        NORMALIZED_MAP[k] = iso2
+    if iso2:
+        DISPLAY_MAP[iso2] = display_name
+        for k in keys:
+            if k:
+                NORMALIZED_MAP[k] = iso2
 
-
-
-HIGH_RISK_JURISDICTIONS = {
-    'IR', # Iran
-    'SY', # Syria
-    'PK', # Pakistan
-    'JO', # Jordan
-    'TR', # Turkey
-    'AE', # UAE
-    'ZA', # South Africa
-    'NG', # Nigeria
-    'YE', # Yemen
-    'KP', # North Korea
-    'RU', # Russia
-    'AF', # Afghanistan
-    'IQ', # Iraq
-    'CU', # Cuba
-    'SD', # Sudan
-    'SS'  # South Sudan
-}
 
 # Regional Blocs (ISO-2)
 REGIONAL_BLOCS = {
@@ -252,7 +240,51 @@ REGIONAL_BLOCS = {
     ]
 }
 
-# --- 4. FUNGSI UTAMA ---
+# ==========================================
+# 2. DYNAMIC RISK ENGINE (DATABASE LAYER)
+# ==========================================
+
+class GeoRiskEngine:
+    def __init__(self):
+        self.risk_cache = {} 
+        self.reload_risks()
+
+    def reload_risks(self):
+        """
+        Tarik data dari tabel geo_risk_countries (DB) ke Memory.
+        """
+        session = SessionLocal()
+        try:
+            mappings = {}
+            countries = session.query(GeoRiskCountry).all()
+            
+            for c in countries:
+                if c.category:
+                    mappings[c.country_code.upper()] = {
+                        'score': c.category.risk_score,
+                        'category_name': c.category.name,
+                        'desc': c.category.description
+                    }
+            
+            self.risk_cache = mappings
+            # print(f"[GeoEngine] Loaded {len(mappings)} risk jurisdictions.")
+        except Exception as e:
+            print(f"[GeoEngine] Warning: Could not load risks from DB ({e}). Using empty set.")
+            self.risk_cache = {}
+        finally:
+            session.close()
+
+    def get_risk_details(self, iso_code: str):
+        """Ambil detail risiko (Category & Score)"""
+        if not iso_code: return None
+        return self.risk_cache.get(iso_code.upper())
+
+# Instance Global (Singleton) -> Dipanggil oleh fungsi generate_insights
+geo_engine = GeoRiskEngine()
+
+# ==========================================
+# 3. HELPER FUNCTIONS
+# ==========================================
 
 def get_iso2_code(input_str: str) -> str | None:
     """Konversi input apapun (nama/kode) ke ISO-2 code."""
@@ -279,64 +311,89 @@ def get_country_bloc(input_str: str) -> str | None:
             return bloc_name
     return None
 
+# ==========================================
+# 4. INSIGHT GENERATOR (LOGIC UTAMA)
+# ==========================================
+
 def generate_geographic_insights(customer: Dict[str, Any], sanction: Dict[str, Any]) -> List[str]:
     """
-    Menghasilkan insight geografis dengan pencocokan pintar (Bilingual & Multi-format).
+    Menghasilkan insight geografis untuk Nasabah DAN Entitas Sanksi.
+    Logic:
+    1. Jika Negara Sama -> Tampilkan 1 insight gabungan (jika berisiko).
+    2. Jika Beda -> Tampilkan insight masing-masing (jika berisiko).
     """
     insights = []
+    
+    # 1. Ambil & Normalisasi Data
+    raw_c_cit = customer.get("Citizenship")          # Input Nasabah
+    raw_s_cit = sanction.get("Citizenship")          # Data Sanksi
+    raw_c_res = customer.get("Country_of_Residence") # Residensi Nasabah
 
-    # Ambil input mentah
-    raw_c_cit = customer.get("Citizenship")
-    raw_c_res = customer.get("Country_of_Residence")
-    raw_c_pob = customer.get("Place_of_Birth")
-    raw_s_cit = sanction.get("Citizenship")
-
-    # Konversi ke ISO-2
     iso_c_cit = get_iso2_code(raw_c_cit)
+    iso_s_cit = get_iso2_code(raw_s_cit)
     iso_c_res = get_iso2_code(raw_c_res)
-    iso_c_pob = get_iso2_code(raw_c_pob)
 
-    # Display Names (untuk pesan error yg enak dibaca)
     disp_c_cit = get_country_display(raw_c_cit)
-    disp_c_res = get_country_display(raw_c_res)
     disp_s_cit = get_country_display(raw_s_cit)
+    disp_c_res = get_country_display(raw_c_res)
 
-    # 1. High Risk Check (Citizenship)
-    if iso_c_cit in HIGH_RISK_JURISDICTIONS:
-        insights.append(
-            f"⚠️ *Yurisdiksi Berisiko Tinggi:* Kewarganegaraan nasabah ({disp_c_cit}) "
-            f"masuk dalam daftar pemantauan risiko tinggi."
-        )
+    # Ambil Detail Risiko dari DB
+    risk_c_cit = geo_engine.get_risk_details(iso_c_cit)
+    risk_s_cit = geo_engine.get_risk_details(iso_s_cit)
+    risk_c_res = geo_engine.get_risk_details(iso_c_res)
 
+    # 2. LOGIC UTAMA: Perbandingan Citizenship
     
-    if iso_c_res in HIGH_RISK_JURISDICTIONS:
-        insights.append(
-            f"⚠️ *Yurisdiksi Berisiko Tinggi:* Lokasi tempat tinggal/transaksi ({disp_c_res}) "
-            f"masuk dalam daftar pemantauan risiko tinggi."
-        )
-
+    # KASUS A: Negara Sama (Input == Match)
+    if iso_c_cit and iso_s_cit and iso_c_cit == iso_s_cit:
+        # Jika negaranya sama, kita cek sekali saja. Jika berisiko, tampilkan 1 insight.
+        if risk_c_cit:
+            cat = risk_c_cit['category_name']
+            insights.append(
+                f"⚠️ *Risiko Yurisdiksi Sama ({cat}):* Baik Nasabah maupun Entitas Sanksi berasal dari negara yang sama ({disp_c_cit}) "
+                f"yang masuk dalam daftar pemantauan."
+            )
     
+    # KASUS B: Negara Berbeda
+    else:
+        # Cek Risiko Nasabah (Input)
+        if risk_c_cit:
+            cat = risk_c_cit['category_name']
+            insights.append(
+                f"⚠️ *Risiko Nasabah ({cat}):* Kewarganegaraan nasabah ({disp_c_cit}) "
+                f"masuk dalam daftar pemantauan risiko tinggi."
+            )
+        
+        # Cek Risiko Entitas Sanksi (Match)
+        if risk_s_cit:
+            cat = risk_s_cit['category_name']
+            insights.append(
+                f"⚠️ *Risiko Entitas ({cat}):* Entitas sanksi yang cocok berasal dari ({disp_s_cit}) "
+                f"yang masuk dalam daftar pemantauan."
+            )
+
+    # 3. Cek Residensi Nasabah (Terpisah dari Citizenship)
+    # Ini penting karena nasabah bisa WN Singapura tapi tinggal di Iran.
+    if iso_c_res and iso_c_res != iso_c_cit: # Hindari duplikat jika tinggal di negara asal
+        if risk_c_res:
+            cat = risk_c_res['category_name']
+            insights.append(
+                f"⚠️ *Risiko Lokasi ({cat}):* Nasabah bertempat tinggal di ({disp_c_res}) "
+                f"yang masuk dalam daftar pemantauan."
+            )
+
+    # 4. Regional Logic (Kedekatan Wilayah)
+    # Misal: Nasabah Indonesia (Low Risk) vs Sanksi Malaysia (Low Risk) -> Tetap kasih info satu region
     c_bloc = get_country_bloc(raw_c_cit)
     s_bloc = get_country_bloc(raw_s_cit)
     
     if c_bloc and s_bloc and c_bloc == s_bloc:
-        insights.append(
-            f"ℹ️ *Kedekatan Regional:* Nasabah ({disp_c_cit}) dan entitas sanksi "
-            f"({disp_s_cit}) berasal dari kawasan regional yang sama ({c_bloc})."
-        )
-
-    
-    
-    risk_hits = set()
-    for iso in [iso_c_cit, iso_c_res, iso_c_pob]:
-        if iso and iso in HIGH_RISK_JURISDICTIONS:
-            risk_hits.add(DISPLAY_MAP.get(iso))
-            
-    if len(risk_hits) >= 2:
-        countries_str = ", ".join(risk_hits)
-        insights.append(
-            f"🚩 *Anomali Geografis:* Terdeteksi eksposur ganda ke yurisdiksi berisiko tinggi "
-            f"({countries_str})."
-        )
+        # Hanya tampilkan regional insight jika negaranya BEDA. 
+        # Kalau negaranya sama, info regional jadi redundant dengan info "Negara Sama" di atas.
+        if iso_c_cit != iso_s_cit:
+            insights.append(
+                f"ℹ️ *Kedekatan Regional:* Nasabah ({disp_c_cit}) dan entitas sanksi ({disp_s_cit}) "
+                f"berasal dari kawasan regional yang sama ({c_bloc})."
+            )
 
     return insights

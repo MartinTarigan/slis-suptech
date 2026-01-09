@@ -14,7 +14,7 @@ from slis.models import (
 )
 from slis.matching.names import normalize_name, calculate_advanced_name_score
 from slis.matching.geo import generate_geographic_insights
-from slis.matching.dob import calculate_dob_score_flexible
+from slis.matching.dob import calculate_dob_score_structured, parse_dob
 
 logger = get_task_logger(__name__)
 
@@ -87,14 +87,22 @@ def run_screening_task(self, job_id: int) -> dict:
         sanction_rows = []
         for s in sanctions_orm:
             norm_name = s.primary_name_normalized or normalize_name(s.primary_name)
+            dob_struct = {
+                "year": s.dob_year,
+                "month": s.dob_month,
+                "day": s.dob_day
+            }
             sanction_rows.append({
                 "id": s.id,
                 "source_id": s.source_id,
+                "source_code": s.source.code if s.source else "UNKNOWN",
                 "snapshot_id": s.snapshot_id,
                 "name": s.primary_name,
                 "name_norm": norm_name,
                 "dob_raw": s.date_of_birth_raw,
+                "dob_struct": dob_struct,
                 "citizenship": s.citizenship,
+                "citizenship_norm": normalize_country_code(s.citizenship) if s.citizenship else None
             })
 
         # Update info job
@@ -153,16 +161,15 @@ def run_screening_task(self, job_id: int) -> dict:
 
                 for p in parties:
                     raw_name = p["raw_name"]
-                    norm_name = p["norm_name"]
-                    
                     if not raw_name: continue
-                    target_norm = norm_name or normalize_name(raw_name)
+                    target_norm = p["norm_name"] or normalize_name(raw_name)
                     if not target_norm: continue
 
-                    # Data Transaksi untuk Matching
                     tx_dob_val = p["dob"]
-                    tx_country_norm = normalize_country_code(p["country"])
+                    tx_dob_struct = parse_dob(tx_dob_val)
 
+                    tx_country_norm = normalize_country_code(p["country"])
+                
                     for s in sanction_rows:
                         # 1. Name Score
                         name_score = calculate_advanced_name_score(target_norm, s["name_norm"])
@@ -174,11 +181,12 @@ def run_screening_task(self, job_id: int) -> dict:
                         dob_match_type = None
                         
                         # Hanya hitung jika kedua pihak punya data DOB
-                        if tx_dob_val and s["dob_raw"]:
-                            score, desc = calculate_dob_score_flexible(
-                                str(tx_dob_val), 
-                                str(s["dob_raw"]), 
-                                s["source_code"]
+                        if tx_dob_struct["year"] and s["dob_struct"]["year"]:
+                            score, desc = calculate_dob_score_structured(
+                                cust_dob=tx_dob_struct,
+                                sanction_dob=s["dob_struct"],
+                                raw_sanction_str=s["dob_raw"],
+                                source_code=s["source_code"]
                             )
                             dob_score = float(score)
                             dob_match_type = desc
@@ -187,14 +195,14 @@ def run_screening_task(self, job_id: int) -> dict:
                         # 3. Citizenship Score Logic
                         citizenship_score = 0.0
                         has_cit = False
-                        matched_citizenship_val = None
+                        matched_cit_val = None
                         
                         # Hanya hitung jika kedua pihak punya data Country
                         if tx_country_norm and s["citizenship_norm"]:
                             # Exact match pada kode negara yang sudah dinormalisasi (iso2/lower)
                             if tx_country_norm == s["citizenship_norm"]:
                                 citizenship_score = 100.0
-                                matched_citizenship_val = s["citizenship"] # Simpan nilai asli
+                                matched_cit_val = s["citizenship"] # Simpan nilai asli
                             has_cit = True
 
                         # 4. Final Score & Scheme Dynamic
@@ -207,13 +215,10 @@ def run_screening_task(self, job_id: int) -> dict:
                         if final_score < final_threshold: continue
 
                         # 5. Geographic Insights
-                        customer_geo = {
-                            "Citizenship": p["country"], 
-                            "Country_of_Residence": tx.destination_country, 
-                            "Place_of_Birth": None
-                        }
-                        sanction_geo = { "Citizenship": s["citizenship"] }
-                        geo_insights = generate_geographic_insights(customer_geo, sanction_geo)
+                        geo_insights = generate_geographic_insights(
+                            {"Citizenship": p["country"], "Country_of_Residence": tx.destination_country},
+                            {"Citizenship": s["citizenship"]}
+                        )
 
                         total_matches += 1
                         
@@ -239,11 +244,10 @@ def run_screening_task(self, job_id: int) -> dict:
                             citizenship_score=citizenship_score,
                             final_score=final_score,
                             
-                            # Simpan metadata dinamis
                             dob_match_type=dob_match_type,
-                            matched_dob_text=tx_dob_val if has_dob else None,
-                            matched_citizenship=matched_citizenship_val,
-                            weighting_scheme=scheme_name, # <--- INI SEKARANG DINAMIS
+                            matched_dob_text=str(tx_dob_val) if has_dob else None,
+                            matched_citizenship=matched_cit_val,
+                            weighting_scheme=scheme_name,
                             geographic_insights=geo_insights
                         )
                         results_bulk.append(sr)

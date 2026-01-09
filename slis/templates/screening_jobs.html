@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} 
+{% block content %}
 <div class="row">
   <div class="col">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -19,24 +20,23 @@
             <th>ID</th>
             <th>Batch</th>
             <th>Status</th>
-            <th style="width: 20%">Progress</th>
-            <th>Transaksi</th>
+            <th style="width: 25%">Progress & Estimasi</th> <th>Transaksi</th>
             <th>Matches</th>
-            <th>Started</th>
-            <th>Finished</th>
+            <th>Started (WIB)</th>
+            <th>Finished (WIB)</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for j in jobs %} {% set is_finished = j.status == 'SUCCESS' or
-          j.status == 'DONE' %} {% set bar_width = 100 if is_finished else
-          (j.progress_percentage or 0) %} {% set bar_class = 'bg-success' if
-          is_finished else ('progress-bar-animated bg-warning' if j.status ==
-          'RUNNING' else 'bg-secondary') %}
+          {% for j in jobs %} 
+            {% set is_finished = j.status == 'SUCCESS' or j.status == 'DONE' or j.status == 'FAILURE' or j.status == 'CANCELED' %} 
+            {% set bar_width = 100 if is_finished else (j.progress_percentage or 0) %} 
+            {% set bar_class = 'bg-success' if j.status == 'SUCCESS' else ('bg-danger' if j.status == 'FAILURE' else ('bg-secondary' if j.status == 'CANCELED' else ('progress-bar-animated bg-warning' if j.status == 'RUNNING' else 'bg-secondary'))) %}
 
           <tr
             data-job-id="{{ j.id }}"
             data-status="{{ j.status }}"
+            data-started-at="{{ j.started_at.isoformat() if j.started_at else '' }}"
             class="job-row"
           >
             <td><strong>#{{ j.id }}</strong></td>
@@ -48,15 +48,14 @@
               <span class="badge bg-danger">FAILURE</span>
               {% elif j.status == 'RUNNING' %}
               <span class="badge bg-warning text-dark">RUNNING</span>
+              {% elif j.status == 'CANCELED' %}
+              <span class="badge bg-secondary">CANCELED</span>
               {% else %}
               <span class="badge bg-secondary">{{ j.status }}</span>
               {% endif %}
             </td>
             <td>
-              <div
-                class="progress"
-                style="height: 20px; background-color: #e2e8f0"
-              >
+              <div class="progress" style="height: 20px; background-color: #e2e8f0">
                 <div
                   class="progress-bar progress-bar-striped {{ bar_class }}"
                   role="progressbar"
@@ -70,29 +69,38 @@
                   </span>
                 </div>
               </div>
+              
+              {% if j.status == 'RUNNING' %}
+                <div class="eta-container mt-1 text-muted" style="font-size: 0.75rem;">
+                   <span class="spinner-border spinner-border-sm text-secondary" style="width: 0.7rem; height: 0.7rem;" role="status"></span>
+                   <span class="eta-text">Menghitung estimasi...</span>
+                </div>
+              {% endif %}
             </td>
+            
             <td class="transactions-info">
               <span class="processed fw-bold">
-                {{ j.total_transactions if is_finished else
-                (j.processed_transactions or 0) }}
+                {{ j.total_transactions if is_finished else (j.processed_transactions or 0) }}
               </span>
               <span class="text-muted small">/</span>
-              <span class="total text-muted small"
-                >{{ j.total_transactions or 0 }}</span
-              >
+              <span class="total text-muted small">{{ j.total_transactions or 0 }}</span>
             </td>
 
             <td class="matches-count fw-bold text-danger">
               {{ j.total_matches or 0 }}
             </td>
+            
             <td class="small text-muted">
-              {{ j.started_at.strftime('%Y-%m-%d %H:%M') if j.started_at else
-              '-' }}
+              <span class="local-time" data-utc="{{ j.started_at.isoformat() if j.started_at else '' }}">
+                -
+              </span>
             </td>
             <td class="small text-muted">
-              {{ j.finished_at.strftime('%Y-%m-%d %H:%M') if j.finished_at else
-              '-' }}
+              <span class="local-time" data-utc="{{ j.finished_at.isoformat() if j.finished_at else '' }}">
+                -
+              </span>
             </td>
+            
             <td>
               {% if j.status == 'SUCCESS' %}
               <a
@@ -105,9 +113,16 @@
               <button class="btn btn-sm btn-outline-danger" disabled>
                 Error
               </button>
+              {% elif j.status == 'RUNNING' or j.status == 'PENDING' %}
+              <button 
+                class="btn btn-sm btn-outline-danger"
+                onclick="cancelJob({{ j.id }})"
+              >
+                Batalkan
+              </button>
               {% else %}
               <button class="btn btn-sm btn-outline-secondary" disabled>
-                Processing...
+                Done
               </button>
               {% endif %}
             </td>
@@ -131,9 +146,55 @@
 </div>
 
 <script>
+  // --- FUNGSI 1: KONVERSI TIMEZONE (UTC -> WIB) ---
+  function convertToWIB(isoString) {
+    if (!isoString || isoString === 'None') return '-';
+    
+    // Pastikan string dianggap UTC (tambah Z jika belum ada)
+    if (!isoString.endsWith('Z') && !isoString.includes('+')) {
+        isoString += 'Z';
+    }
+
+    const date = new Date(isoString);
+    
+    // Formatter khusus ke Asia/Jakarta
+    return new Intl.DateTimeFormat('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Jakarta'
+    }).format(date).replace(/\./g, ':'); // Ganti titik jadi titik dua (format Indo)
+  }
+
+  // --- FUNGSI 2: FORMAT DURASI (Detik -> Menit:Detik) ---
+  function formatDuration(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return "Menghitung...";
+    if (seconds < 60) return `${Math.ceil(seconds)} detik lagi`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.ceil(seconds % 60);
+    return `~${minutes} menit ${secs} detik lagi`;
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    // A. Convert semua waktu statis saat load pertama kali
+    document.querySelectorAll('.local-time').forEach(el => {
+        el.textContent = convertToWIB(el.dataset.utc);
+    });
+
+    // B. Monitoring Jobs
     const runningRows = document.querySelectorAll('tr[data-status="RUNNING"]');
     const jobIds = Array.from(runningRows).map((row) => row.dataset.jobId);
+
+    // Fungsi cancel (sama seperti sebelumnya)
+    window.cancelJob = async function (jobId) {
+      if(!confirm(`Batalkan job #${jobId}?`)) return;
+      try {
+        await fetch(`/api/screening/jobs/${jobId}/cancel`, { method: "POST" });
+        location.reload();
+      } catch (e) { alert("Network error"); }
+    };
 
     if (jobIds.length > 0) {
       console.log("Monitoring jobs:", jobIds);
@@ -141,85 +202,76 @@
       const pollInterval = setInterval(() => {
         jobIds.forEach((jobId) => {
           fetch(`/api/screening/jobs/${jobId}/progress`)
-            .then((response) => {
-              if (!response.ok) {
-                console.error("Fetch error:", response.status);
-                return null;
-              }
-              return response.json();
-            })
+            .then((response) => response.ok ? response.json() : null)
             .then((data) => {
               if (!data) return;
-
-              // --- DEBUGGING: Lihat isi data di Console Browser ---
-              console.log(`Job ${jobId} Data:`, data);
-              // ----------------------------------------------------
 
               const row = document.querySelector(`tr[data-job-id="${jobId}"]`);
               if (!row) return;
 
-              // 1. Logika Penentuan Persentase (Fallback agar aman)
-              // Backend mungkin mengirim 'percent' (dari Redis) atau 'progress_percentage' (dari DB)
-              let rawPercent = data.percent;
-              if (rawPercent === undefined || rawPercent === null) {
-                rawPercent = data.progress_percentage;
-              }
-              const pct = Math.round(rawPercent || 0);
+              // 1. Update Data Dasar
+              let rawPercent = data.percent ?? data.progress_percentage ?? 0;
+              const pct = Math.round(rawPercent);
+              const processed = data.processed ?? data.processed_transactions ?? 0;
+              const total = data.total ?? data.total_transactions ?? 1; // Avoid div by zero
 
-              // 2. Update Progress Bar Visual
+              // 2. Update Progress Bar UI
               const progressBar = row.querySelector(".progress-bar");
               const progressText = row.querySelector(".progress-text");
-
+              
               if (progressBar) {
                 progressBar.style.width = `${pct}%`;
                 progressBar.setAttribute("aria-valuenow", pct);
-
-                // Hapus class 'bg-warning' jika sudah selesai (opsional)
-                if (pct >= 100) {
-                  progressBar.classList.remove("bg-warning");
-                  progressBar.classList.add("bg-success");
-                }
               }
+              if (progressText) progressText.textContent = `${pct}%`;
 
-              if (progressText) {
-                progressText.textContent = `${pct}%`;
-              }
-
-              // 3. Update Angka Teks
+              // 3. Update Text Info
               const processedSpan = row.querySelector(".processed");
-              const totalSpan = row.querySelector(".total");
+              if (processedSpan) processedSpan.textContent = processed;
+
               const matchesCell = row.querySelector(".matches-count");
+              if (matchesCell) matchesCell.textContent = data.matches ?? 0;
 
-              // Gunakan fallback 'processed_transactions' jika 'processed' kosong
-              if (processedSpan)
-                processedSpan.textContent =
-                  data.processed ?? data.processed_transactions ?? 0;
-              if (totalSpan)
-                totalSpan.textContent =
-                  data.total ?? data.total_transactions ?? 0;
-              if (matchesCell)
-                matchesCell.textContent =
-                  data.matches ?? data.total_matches ?? 0;
+              // --- 4. LOGIKA ESTIMASI WAKTU (ETA) ---
+              const etaText = row.querySelector(".eta-text");
+              const startTimeStr = row.dataset.startedAt; // Ambil dari HTML attribute (lebih stabil)
+              
+              if (etaText && startTimeStr) {
+                  // Pastikan UTC
+                  let isoStart = startTimeStr;
+                  if (!isoStart.endsWith('Z')) isoStart += 'Z';
+                  
+                  const startTime = new Date(isoStart).getTime();
+                  const now = new Date().getTime();
+                  const elapsedSeconds = (now - startTime) / 1000;
 
-              // 4. Auto Reload jika Status Berubah (Selesai/Gagal)
-              // Kita cek jika status data berbeda dengan status di atribut HTML awal
-              if (data.status === "SUCCESS" || data.status === "FAILURE") {
-                console.log(
-                  `Job ${jobId} finished with status ${data.status}. Reloading...`
-                );
+                  // Hitung Kecepatan (Trx / Detik)
+                  if (elapsedSeconds > 2 && processed > 0) {
+                      const rate = processed / elapsedSeconds; // Transaksi per detik
+                      const remainingItems = total - processed;
+                      
+                      if (remainingItems > 0 && rate > 0) {
+                          const secondsLeft = remainingItems / rate;
+                          etaText.textContent = formatDuration(secondsLeft);
+                      } else if (remainingItems <= 0) {
+                          etaText.textContent = "Finalizing...";
+                      }
+                  } else {
+                      etaText.textContent = "Menghitung kecepatan...";
+                  }
+              }
+
+              // 5. Auto Reload kalau selesai
+              if (["SUCCESS", "FAILURE", "DONE"].includes(data.status)) {
                 clearInterval(pollInterval);
                 setTimeout(() => location.reload(), 1000);
               }
             })
-            .catch((error) => {
-              console.error(`Network Error job ${jobId}:`, error);
-            });
+            .catch(console.error);
         });
-      }, 500);
+      }, 1000); // Polling tiap 1 detik (biar estimasi waktunya enak dilihat)
 
-      window.addEventListener("beforeunload", () => {
-        clearInterval(pollInterval);
-      });
+      window.addEventListener("beforeunload", () => clearInterval(pollInterval));
     }
   });
 </script>

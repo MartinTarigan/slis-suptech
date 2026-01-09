@@ -337,3 +337,19 @@ class ScreeningResult(Base):
         "SanctionEntity",
         back_populates="screening_results",
     )
+
+class GeoRiskCategory(Base):
+    __tablename__ = "geo_risk_category"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    risk_score = Column(Float, default=1.0)
+    description = Column(Text)
+    countries = relationship("GeoRiskCountry", back_populates="category", cascade="all, delete-orphan")
+
+class GeoRiskCountry(Base):
+    __tablename__ = "geo_risk_countries"
+    id = Column(Integer, primary_key=True)
+    category_id = Column(Integer, ForeignKey("geo_risk_category.id"))
+    country_code = Column(String(2), nullable=False)
+    country_name = Column(String(100))
+    category = relationship("GeoRiskCategory", back_populates="countries")

@@ -3,7 +3,7 @@ from slis.matching import (
     normalize_name,
     calculate_advanced_name_score,
     parse_dob,
-    calculate_dob_score_flexible,
+    calculate_dob_score_structured,
     run_screening_engine,
 )
 from slis.tasks import run_screening_task
@@ -96,7 +96,7 @@ def test_dob_match():
     sanction = request.args.get("sanction", "")
     source = request.args.get("source", "")
 
-    score, desc = calculate_dob_score_flexible(cust, sanction, source)
+    score, desc = calculate_dob_score_structured(cust, sanction, source)
     return jsonify({
         "customer_dob": cust,
         "sanction_dob": sanction,

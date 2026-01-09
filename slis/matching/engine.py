@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Tuple
 
 from .names import calculate_advanced_name_score
-from .dob import calculate_dob_score_flexible
+from .dob import calculate_dob_score_structured, parse_dob
 from .geo import generate_geographic_insights
 from .utils import normalize_and_compare
 
@@ -15,10 +15,6 @@ BASE_WEIGHTS = {
 
 
 def _extract_customer_fields(customer: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ambil field nama, DOB, kewarganegaraan, residence, birthplace
-    dengan fallback ke beberapa nama kolom yang mungkin.
-    """
     name = (
         customer.get("Nama")
         or customer.get("Full_Name")
@@ -61,10 +57,6 @@ def _extract_customer_fields(customer: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _extract_sanction_fields(sanction: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ambil field kunci dari entry sanction list.
-    Wajib punya Full_Name minimal.
-    """
     full_name = (
         sanction.get("Full_Name")
         or sanction.get("full_name")
@@ -72,10 +64,10 @@ def _extract_sanction_fields(sanction: Dict[str, Any]) -> Dict[str, Any]:
         or sanction.get("name")
     )
 
-    date_of_birth = (
-        sanction.get("Date_of_Birth")
-        or sanction.get("dob")
-        or sanction.get("Tanggal_Lahir")
+    dob_struct = sanction.get("dob_struct")
+
+    date_of_birth_raw = (
+        sanction.get("Date_of_Birth") or sanction.get("dob") or sanction.get("Tanggal_Lahir") or sanction.get("dob_raw")
     )
 
     citizenship = (
@@ -88,7 +80,8 @@ def _extract_sanction_fields(sanction: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "full_name": full_name or "",
-        "date_of_birth": date_of_birth or "",
+        "dob_struct": dob_struct,
+        "date_of_birth_raw": date_of_birth_raw or "",
         "citizenship": citizenship or "",
         "source_list": source,
     }
@@ -145,66 +138,69 @@ def run_screening_engine(
 
     results: List[Dict[str, Any]] = []
 
-    for customer in customers:
-        customer.setdefault("Country_of_Residence", customer.get("country_of_residence", ""))
-        customer.setdefault("Place_of_Birth", customer.get("place_of_birth", ""))
-
+    processed_customers = []
     for cust in customers:
-        cust_fields = _extract_customer_fields(cust)
+        fields = _extract_customer_fields(cust)
+        if not fields["name"]: continue
+        
+        # Parse DOB Customer ke Structured Dict
+        fields["dob_struct"] = parse_dob(fields["dob"])
+        processed_customers.append({"original": cust, "fields": fields})
+
+    processed_sanctions = []
+    for sanc in sanctions:
+        fields = _extract_sanction_fields(sanc)
+        if not fields["full_name"]: continue
+
+        # Jika caller belum menyediakan dob_struct, parse sekarang
+        if not fields["dob_struct"]:
+            fields["dob_struct"] = parse_dob(fields["date_of_birth_raw"])
+            
+        processed_sanctions.append({"original": sanc, "fields": fields})
+
+    for cust_obj in processed_customers:
+        cust_fields = cust_obj["fields"]
+        cust_origin = cust_obj["original"]
         customer_name = cust_fields["name"]
 
-        if not customer_name:
+        for sanc_obj in processed_sanctions:
+            sanc_fields = sanc_obj["fields"]
+            sanc_origin = sanc_obj["original"]
+
+            name_score = calculate_advanced_name_score(customer_name, sanc_fields["full_name"])
+            if name_score < name_threshold: continue
+
+            # --- DOB Matching (Structured) ---
+            # Syarat: Customer punya Year DAN Sanction punya Year
+            cust_dob = cust_fields["dob_struct"]
+            sanc_dob = sanc_fields["dob_struct"]
             
-            continue
-
-        for sanc in sanctions:
-            sanc_fields = _extract_sanction_fields(sanc)
-
+            has_dob = bool(cust_dob.get("year") and sanc_dob.get("year"))
             
-            if not sanc_fields["full_name"]:
-                continue
+            dob_score = 0.0
+            dob_match_type = "Not Available"
 
-            source_list = sanc_fields["source_list"]
-
-            
-            name_score = calculate_advanced_name_score(
-                customer_name,
-                sanc_fields["full_name"],
-            )
-
-            
-            if name_score < name_threshold:
-                continue
-
-            
-
-            has_dob = bool(cust_fields["dob"] and sanc_fields["date_of_birth"])
-            has_cit = bool(cust_fields["citizenship"] and sanc_fields["citizenship"])
-
-            
             if has_dob:
-                dob_score, dob_match_type = calculate_dob_score_flexible(
-                    cust_fields["dob"],
-                    sanc_fields["date_of_birth"],
-                    source_list,
+                score, desc = calculate_dob_score_structured(
+                    cust_dob=cust_dob,
+                    sanction_dob=sanc_dob,
+                    raw_sanction_str=sanc_fields["date_of_birth_raw"],
+                    source_code=sanc_fields["source_list"]
                 )
-            else:
-                dob_score, dob_match_type = 0, "Not Available"
+                dob_score = float(score)
+                dob_match_type = desc
 
-            
+            # --- Citizenship Matching ---
+            has_cit = bool(cust_fields["citizenship"] and sanc_fields["citizenship"])
+            citizenship_score = 0.0
             if has_cit:
                 citizenship_score = normalize_and_compare(
                     cust_fields["citizenship"],
                     sanc_fields["citizenship"],
                 )
-            else:
-                citizenship_score = 0
 
-            
-            scheme_name, weights = _compute_dynamic_weights(
-                has_dob=has_dob,
-                has_citizenship=has_cit,
-            )
+            # --- Final Score ---
+            scheme_name, weights = _compute_dynamic_weights(has_dob, has_cit)
 
             final_score = (
                 weights.get("name", 0.0) * name_score
@@ -212,19 +208,14 @@ def run_screening_engine(
                 + weights.get("citizenship", 0.0) * citizenship_score
             )
 
-            
-            customer_geo_payload = {
-                "Citizenship": cust_fields["citizenship"],
-                "Country_of_Residence": cust_fields["country_of_residence"],
-                "Place_of_Birth": cust_fields["place_of_birth"],
-            }
-
-            sanction_geo_payload = {
-                "Citizenship": sanc_fields["citizenship"],
-            }
-
+            # Geo Insights
             geo_insights = generate_geographic_insights(
-                customer_geo_payload, sanction_geo_payload
+                {
+                    "Citizenship": cust_fields["citizenship"],
+                    "Country_of_Residence": cust_fields["country_of_residence"],
+                    "Place_of_Birth": cust_fields["place_of_birth"],
+                },
+                {"Citizenship": sanc_fields["citizenship"]}
             )
 
             exact_matches_found = []
@@ -233,41 +224,27 @@ def run_screening_engine(
             if has_cit and citizenship_score == 100:
                 exact_matches_found.append("Citizenship")
 
-            results.append(
-                {
-                    
-                    "Customer_Id": cust.get("id") or cust.get("customer_id"),
-                    "Sanction_Id": sanc.get("id") or sanc.get("sanction_id"),
-
-                    "Customer_Name": customer_name,
-                    "Matched_Sanction_Name": sanc_fields["full_name"],
-                    "Source_List": source_list,
-
-                    "Final_Score": final_score,
-                    "Name_Score": name_score,
-                    "DOB_Score": dob_score,
-                    "DOB_Match_Type": dob_match_type,
-                    "Citizenship_Score": citizenship_score,
-
-                    "Customer_DOB": cust_fields["dob"],
-                    "Sanction_DOB": sanc_fields["date_of_birth"],
-                    "Customer_Citizenship": cust_fields["citizenship"],
-                    "Sanction_Citizenship": sanc_fields["citizenship"],
-
-                    "Exact_Matches": ", ".join(exact_matches_found) if exact_matches_found else "None",
-
-                    "Geographic_Insights": geo_insights,
-
-                    
-                    "Weighting_Scheme": scheme_name,
-                    "Weights_Used": {
-                        "name": weights.get("name", 0.0),
-                        "dob": weights.get("dob", 0.0),
-                        "citizenship": weights.get("citizenship", 0.0),
-                    },
-                    "Has_DOB": has_dob,
-                    "Has_Citizenship": has_cit,
-                }
-            )
+            results.append({
+                "Customer_Id": cust_origin.get("id") or cust_origin.get("customer_id"),
+                "Sanction_Id": sanc_origin.get("id") or sanc_origin.get("sanction_id"),
+                "Customer_Name": customer_name,
+                "Matched_Sanction_Name": sanc_fields["full_name"],
+                "Source_List": sanc_fields["source_list"],
+                "Final_Score": final_score,
+                "Name_Score": name_score,
+                "DOB_Score": dob_score,
+                "DOB_Match_Type": dob_match_type,
+                "Citizenship_Score": citizenship_score,
+                "Customer_DOB": cust_fields["dob"],
+                "Sanction_DOB": sanc_fields["date_of_birth_raw"],
+                "Customer_Citizenship": cust_fields["citizenship"],
+                "Sanction_Citizenship": sanc_fields["citizenship"],
+                "Exact_Matches": ", ".join(exact_matches_found) if exact_matches_found else "None",
+                "Geographic_Insights": geo_insights,
+                "Weighting_Scheme": scheme_name,
+                "Weights_Used": weights,
+                "Has_DOB": has_dob,
+                "Has_Citizenship": has_cit,
+            })
 
     return results

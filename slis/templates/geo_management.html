@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-2">Manajemen Risiko Geografis</h2>
+            <p class="text-muted mb-0">Kelola daftar negara berisiko untuk screening AML/CFT.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="refreshAllData()">
+                ↻ Refresh
+            </button>
+            <span class="badge bg-info text-dark">Versi: 24 Oktober 2024</span>
+        </div>
+    </div>
+
+    <!-- Simplified info box dengan FATF explanation -->
+    <div class="alert alert-light border-start border-4 border-info shadow-sm mb-4">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <span style="font-size: 1.5rem;">ℹ️</span>
+            </div>
+            <div class="col">
+                <strong>Referensi FATF Public Statement (Oktober 2024)</strong><br>
+                <small class="text-muted">
+                    <strong>Blacklist:</strong> Negara dengan risiko tinggi yang memerlukan tindakan khusus.
+                    &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <strong>Greylist:</strong> Negara yang sedang dalam pengawasan ketat.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Simplified tab navigation untuk Blacklist dan Greylist saja -->
+    <ul class="nav nav-tabs mb-4 border-bottom" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold px-4" id="blacklist-tab" data-bs-toggle="tab" data-bs-target="#blacklist" type="button" role="tab">
+                🔴 Blacklist (High-Risk)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-bold px-4" id="greylist-tab" data-bs-toggle="tab" data-bs-target="#greylist" type="button" role="tab">
+                🟡 Greylist (Increased Monitoring)
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Blacklist tab dengan badge-based layout -->
+        <div class="tab-pane fade show active" id="blacklist" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <h6 class="mb-0 text-secondary fw-bold">Negara Risiko Tinggi</h6>
+                    <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#addCountryModal" onclick="setModalCategory('High-Risk')">
+                        + Tambah
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="blacklistContainer" class="d-flex flex-wrap gap-2">
+                        <p class="text-muted text-center w-100 py-4">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Greylist tab dengan badge-based layout -->
+        <div class="tab-pane fade" id="greylist" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <h6 class="mb-0 text-secondary fw-bold">Negara Pengawasan Ketat</h6>
+                    <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#addCountryModal" onclick="setModalCategory('Grey List')">
+                        + Tambah
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="greylistContainer" class="d-flex flex-wrap gap-2">
+                        <p class="text-muted text-center w-100 py-4">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tambah Negara -->
+<div class="modal fade" id="addCountryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Tambah Negara</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCountryForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Kategori <span class="text-danger">*</span></label>
+                        <select class="form-select" id="categorySelect" name="category_id" required>
+                            <option value="">Pilih kategori...</option>
+                        </select>
+                        <div class="form-text">High-Risk atau Increased Monitoring</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Kode Negara (2 huruf) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-lg text-uppercase" name="code" placeholder="Contoh: IR, KP" maxlength="2" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nama Negara</label>
+                        <input type="text" class="form-control" name="name" placeholder="Contoh: Iran">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="submitCountry()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentModalCategory = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshAllData();
+});
+
+function refreshAllData() {
+    loadCountries();
+    loadCategories();
+}
+
+function loadCategories() {
+    fetch('/api/geo/categories')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('categorySelect');
+            select.innerHTML = '<option value="">Pilih kategori...</option>';
+            data.forEach(cat => {
+                select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            });
+        })
+        .catch(console.error);
+}
+
+function loadCountries() {
+    fetch('/api/geo/countries')
+        .then(res => res.json())
+        .then(data => {
+            const blacklistContainer = document.getElementById('blacklistContainer');
+            const greylistContainer = document.getElementById('greylistContainer');
+            
+            const blacklist = data.filter(c => c.category.includes('High-Risk') || c.category.includes('Black List'));
+            const greylist = data.filter(c => !c.category.includes('High-Risk') && !c.category.includes('Black List'));
+
+            if(blacklist.length === 0) {
+                blacklistContainer.innerHTML = '<p class="text-muted text-center w-100 py-4">Belum ada negara</p>';
+            } else {
+                blacklistContainer.innerHTML = blacklist.map(c => `
+                    <div class="badge bg-danger text-white d-inline-flex align-items-center gap-2 px-3 py-2" style="font-size: 0.95rem;">
+                        <span class="fw-bold">${c.name || c.code.toUpperCase()}</span>
+                        <span class="text-white-50">${c.code}</span>
+                        <button class="btn btn-sm btn-link text-white p-0 ms-1" onclick="deleteCountry(${c.id})" style="text-decoration: none;">
+                            ✕
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            if(greylist.length === 0) {
+                greylistContainer.innerHTML = '<p class="text-muted text-center w-100 py-4">Belum ada negara</p>';
+            } else {
+                greylistContainer.innerHTML = greylist.map(c => `
+                    <div class="badge bg-warning text-dark d-inline-flex align-items-center gap-2 px-3 py-2" style="font-size: 0.95rem;">
+                        <span class="fw-bold">${c.name || c.code.toUpperCase()}</span>
+                        <span class="text-secondary">${c.code}</span>
+                        <button class="btn btn-sm btn-link text-dark p-0 ms-1" onclick="deleteCountry(${c.id})" style="text-decoration: none;">
+                            ✕
+                        </button>
+                    </div>
+                `).join('');
+            }
+        })
+        .catch(console.error);
+}
+
+function setModalCategory(category) {
+    currentModalCategory = category;
+    document.getElementById('addCountryForm').reset();
+}
+
+function submitCountry() {
+    const form = document.getElementById('addCountryForm');
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    fetch('/api/geo/countries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(response => {
+        if(response.error) {
+            alert("Error: " + response.error);
+        } else {
+            bootstrap.Modal.getInstance(document.getElementById('addCountryModal')).hide();
+            form.reset();
+            loadCountries();
+        }
+    })
+    .catch(() => alert("Terjadi kesalahan jaringan"));
+}
+
+function deleteCountry(id) {
+    if(!confirm("Hapus negara ini?")) return;
+    fetch(`/api/geo/countries/${id}`, { method: 'DELETE' })
+    .then(res => {
+        if(res.ok) { loadCountries(); }
+        else alert("Gagal menghapus.");
+    });
+}
+</script>
+{% endblock %}

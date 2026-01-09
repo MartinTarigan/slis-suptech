@@ -22,43 +22,80 @@ def normalize_name(name: str | None) -> str | None:
 
 def parse_dob(dob_str: str | None) -> Tuple[int | None, int | None, int | None]:
     """
-    Versi simple parser DOB:
-    - support YYYY
-    - YYYY-MM-DD
-    - DD-MM-YYYY
-    - format lain basic
+    Parser DOB yang Robust untuk Import Data ke Database.
+    Output: (Year, Month, Day) sebagai integer.
+    
+    Capabilities:
+    1. Menangani nama bulan Indonesia (Juli -> 7, Mei -> 5).
+    2. Menangani nama bulan Inggris (July -> 7).
+    3. Mendeteksi format YYYY-MM-DD (ISO) dan DD-MM-YYYY (Indo/UK).
+    4. Mendeteksi tahun saja.
     """
-    if dob_str is None:
+    if not dob_str or not dob_str.strip():
         return None, None, None
 
-    s = dob_str.strip()
-    if not s:
-        return None, None, None
+    # 1. Lowercase dan bersihkan whitespace
+    s = dob_str.lower().strip()
 
-    
-    fmts = [
-        "%Y-%m-%d",
-        "%d-%m-%Y",
-        "%Y/%m/%d",
-        "%d/%m/%Y",
-        "%Y",
-    ]
-    for fmt in fmts:
-        try:
-            dt = datetime.strptime(s, fmt)
-            return dt.year, dt.month, dt.day
-        except ValueError:
-            continue
+    # 2. Dictionary Mapping Bulan (Nama -> Angka String)
+    month_map = {
+        # Indonesia
+        'januari': '01', 'februari': '02', 'maret': '03', 'april': '04',
+        'mei': '05', 'juni': '06', 'juli': '07', 'agustus': '08',
+        'september': '09', 'oktober': '10', 'november': '11', 'desember': '12',
+        # Inggris Full
+        'january': '01', 'february': '02', 'march': '03', 'may': '05',
+        'june': '06', 'july': '07', 'august': '08', 'october': '10', 'december': '12',
+        # Singkatan (3 huruf)
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'jun': '06',
+        'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+    }
 
-    
-    import re as _re
+    # 3. Ganti nama bulan dengan angka di dalam string
+    for name, digit in month_map.items():
+        if name in s:
+            s = s.replace(name, digit)
 
-    m = _re.search(r"\b(19\d{2}|20\d{2})\b", s)
-    if m:
-        year = int(m.group(1))
-        return year, None, None
+    # 4. Split berdasarkan delimiter umum (spasi, strip, slash, titik, koma)
+    parts_raw = re.split(r'[-/.\s,]+', s)
+    # Filter hanya yang angka
+    parts = [int(p) for p in parts_raw if p.isdigit()]
 
-    return None, None, None
+    year, month, day = None, None, None
+
+    # 5. Logika Penentuan Posisi (Heuristic)
+    if len(parts) == 3:
+        p1, p2, p3 = parts[0], parts[1], parts[2]
+        
+        # Format A: YYYY-MM-DD (ISO) -> 1996 07 30
+        if p1 > 1000:
+            year, month, day = p1, p2, p3
+            
+        # Format B: DD-MM-YYYY (Indo/UK) -> 30 07 1996
+        elif p3 > 1000:
+            year = p3
+            
+            # Cek ambiguitas (MM-DD vs DD-MM)
+            # Jika angka tengah > 12, pasti itu hari (MM-DD-YYYY style US)
+            if p2 > 12:
+                month, day = p1, p2
+            else:
+                # Default assume DD-MM (Indo/UK)
+                day, month = p1, p2
+
+    elif len(parts) == 1:
+        # Cuma ada 1 angka, cek apakah tahun
+        if parts[0] > 1000 and parts[0] < 2100:
+            year = parts[0]
+
+    # 6. Validasi Logika Kalender
+    # Pastikan month 1-12, day 1-31. Jika tidak valid, reset ke None agar tidak error saat insert DB.
+    if month and (month < 1 or month > 12):
+        month = None
+    if day and (day < 1 or day > 31):
+        day = None
+        
+    return year, month, day
 
 
 def _load_sanction_file_to_df(file_obj: IO[bytes], filename: str) -> pd.DataFrame:

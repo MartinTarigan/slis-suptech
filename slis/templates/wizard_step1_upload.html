@@ -430,7 +430,7 @@
       </div>
 
       <div class="sanction-mode-cards">
-        <div class="mode-card" onclick="selectSanctionMode('db')">
+        <div class="mode-card" onclick="redirectToConfig()">
           <span class="mode-card-badge">Recommended</span>
           <span class="mode-card-icon">✓</span>
           <div class="mode-card-title">Gunakan Database</div>
@@ -455,7 +455,7 @@
   </div>
 
   <div class="step-screening-form" id="stepScreeningForm">
-    <form method="post" action="{{ url_for('web.bulk_screening_submit') }}" enctype="multipart/form-data" id="screeningForm">
+    <form method="post" action="{{ url_for('web.screening_start') }}" enctype="multipart/form-data" id="screeningForm">
       <input type="hidden" name="sanction_mode" id="sanctionModeInput" value="">
       
       <div class="form-card">
@@ -560,6 +560,10 @@
 
 <script>
   let selectedMode = '';
+  function redirectToConfig() {
+    // Redirect langsung ke halaman sanctions upload
+    window.location.href = "{{ url_for('web.sanctions_upload') }}";
+  }
 
   function selectSanctionMode(mode) {
     selectedMode = mode;

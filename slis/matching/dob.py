@@ -1,142 +1,122 @@
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
+from datetime import date, datetime
 
-
-def parse_dob(dob_string: str) -> Dict[str, Any]:
+# --- 1. PARSER INPUT (String -> Dict) ---
+def parse_dob(dob_input: Any) -> Dict[str, Any]:
     """
-    Mengekstrak tahun, bulan, dan hari dari string DOB.
-    Support format:
-    - YYYY
-    - YYYY-MM
-    - YYYY-MM-DD
-    - Format Indonesia (20 Juli 1985, dsb)
-    - Delimiter: -, /, ., spasi
+    Parser robust untuk mengubah input string (dari UI/Excel) menjadi structured dict.
+    Output: {'year': 1996, 'month': 7, 'day': 30}
     """
-    if not isinstance(dob_string, str) or not dob_string.strip():
+    # Handle jika input sudah datetime object
+    if isinstance(dob_input, (date, datetime)):
+        return {'year': dob_input.year, 'month': dob_input.month, 'day': dob_input.day}
+        
+    if not dob_input or not isinstance(dob_input, str) or not dob_input.strip():
         return {'year': None, 'month': None, 'day': None}
 
-    dob_string = dob_string.lower()
-    dob_string = (
-        dob_string.replace('januari', '01')
-        .replace('februari', '02')
-        .replace('maret', '03')
-        .replace('april', '04')
-        .replace('mei', '05')
-        .replace('juni', '06')
-        .replace('juli', '07')
-        .replace('agustus', '08')
-        .replace('september', '09')
-        .replace('oktober', '10')
-        .replace('november', '11')
-        .replace('desember', '12')
-    )
+    dob_string = dob_input.lower().strip()
+    
+    # Mapping Bulan Indonesia & Inggris
+    month_map = {
+        'januari': '01', 'februari': '02', 'maret': '03', 'april': '04',
+        'mei': '05', 'juni': '06', 'juli': '07', 'agustus': '08',
+        'september': '09', 'oktober': '10', 'november': '11', 'desember': '12',
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'may': '05', 'jun': '06',
+        'jul': '07', 'aug': '08', 'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+    }
+    
+    for name, digit in month_map.items():
+        if name in dob_string:
+            dob_string = dob_string.replace(name, digit)
+    
+    # Split angka
+    parts = re.split(r'[-/.\s]+', dob_string)
+    parts = [int(p) for p in parts if p.isdigit()]
+    
+    year, month, day = None, None, None
 
-    parts = re.split(r'[-/.\s]', dob_string.strip())
-    year = month = day = None
+    # Logic Heuristik Posisi
+    if len(parts) == 3:
+        p1, p2, p3 = parts[0], parts[1], parts[2]
+        if p1 > 1000: 
+            year, month, day = p1, p2, p3 # YYYY-MM-DD
+        elif p3 > 1000: 
+            year = p3 # DD-MM-YYYY
+            if p2 > 12: month, day = p1, p2 # US Style
+            else: day, month = p1, p2       # Indo Style
+    elif len(parts) == 1 and parts[0] > 1000:
+        year = parts[0]
 
-    for part in parts:
-        if not part.isdigit():
-            continue
-        value = int(part)
-        if len(part) == 4 and year is None:
-            year = value
-        elif 1 <= value <= 12 and month is None:
-            month = value
-        elif 1 <= value <= 31 and day is None:
-            day = value
-
+    # Validasi Range
+    if month and (month < 1 or month > 12): month = None
+    if day and (day < 1 or day > 31): day = None
+            
     return {'year': year, 'month': month, 'day': day}
 
-
+# --- 2. AUSTRALIA HELPER (String Range Logic) ---
 def get_years_from_sanction_dob(dob_string: str) -> List[Dict[str, Any]]:
-    """
-    Mengambil daftar tahun atau rentang tahun dari string DOB sanksi (Australia).
-    Contoh:
-    - "1980-1985" -> [{'min': 1980, 'max': 1985, 'type': 'range'}]
-    - "1980, 1985" -> [{'year': 1980, 'type': 'single'}, {'year': 1985, 'type': 'single'}]
-    """
     if not isinstance(dob_string, str) or not dob_string.strip():
         return []
-
     dob_string = dob_string.strip().replace(',', '-')
     potential_years = re.findall(r'\d{4}', dob_string)
     year_data = []
-
     i = 0
     while i < len(potential_years):
         year1 = int(potential_years[i])
         if i + 1 < len(potential_years):
             year2 = int(potential_years[i + 1])
             if re.search(f"{year1}-{year2}", dob_string) or re.search(f"{year2}-{year1}", dob_string):
-                year_data.append({
-                    'min': min(year1, year2),
-                    'max': max(year1, year2),
-                    'type': 'range'
-                })
+                year_data.append({'min': min(year1, year2), 'max': max(year1, year2), 'type': 'range'})
                 i += 2
                 continue
-
         year_data.append({'year': year1, 'type': 'single'})
         i += 1
+    return year_data
 
-    unique_year_data = []
-    seen = set()
-    for entry in year_data:
-        key = tuple(sorted(entry.items()))
-        if key not in seen:
-            unique_year_data.append(entry)
-            seen.add(key)
-
-    return unique_year_data
-
-
-def calculate_dob_score_flexible(
-    customer_dob_str: str,
-    sanction_dob_str: str,
-    source_list: str
-):
+# --- 3. SCORING ENGINE (Structured Integer Comparison) ---
+def calculate_dob_score_structured(
+    cust_dob: Dict[str, int],      
+    sanction_dob: Dict[str, int],  
+    raw_sanction_str: str,         
+    source_code: str
+) -> Tuple[float, str]:
     """
-    Menghitung skor DOB:
-    - Untuk Australia: year range -> Full Match = 100
-    - Untuk lainnya:
-        - Full match (Y, M, D)  = 100
-        - Year & Month match    = 75
-        - Year-only match       = 50
-        - No match              = 0
-    Return: (score, description)
+    Membandingkan DOB User (Dict) vs DOB Sanksi (Dict) menggunakan integer.
     """
-    customer_dob_parsed = parse_dob(customer_dob_str)
-    cust_year = customer_dob_parsed['year']
+    c_y = cust_dob.get('year')
+    c_m = cust_dob.get('month')
+    c_d = cust_dob.get('day')
+    
+    if not c_y:
+        return 0.0, "No Customer DOB Year"
 
-    if cust_year is None:
-        return 0, "No Customer DOB"
+    # A. LOGIKA AUSTRALIA (Range Support)
+    if source_code and "Australia" in str(source_code):
+        sanction_years = get_years_from_sanction_dob(raw_sanction_str or "")
+        if sanction_years:
+            for entry in sanction_years:
+                if entry['type'] == 'single' and entry['year'] == c_y:
+                    return 100.0, "Full Match (Australia Year)"
+                elif entry['type'] == 'range' and entry['min'] <= c_y <= entry['max']:
+                    return 100.0, f"Full Match (Australia Range: {entry['min']}-{entry['max']})"
+        # Fallback ke logic standar jika range gagal
 
-    # Logika Australia (fleksibel)
-    if "Australia" in str(source_list):
-        sanction_years = get_years_from_sanction_dob(sanction_dob_str)
-        if not sanction_years:
-            return 0, "No Sanction DOB / Unparsable (Australia)"
+    # B. LOGIKA STANDAR (Integer Match)
+    s_y = sanction_dob.get('year')
+    s_m = sanction_dob.get('month')
+    s_d = sanction_dob.get('day')
 
-        for entry in sanction_years:
-            if entry['type'] == 'single' and entry['year'] == cust_year:
-                return 100, "Full Match (Australia - Single Year)"
-            elif entry['type'] == 'range' and entry['min'] <= cust_year <= entry['max']:
-                return 100, f"Full Match (Australia - Range: {entry['min']}-{entry['max']})"
+    # 1. Cek Tahun
+    if not s_y: return 0.0, "No Sanction Year Data"
+    if c_y != s_y: return 0.0, f"Year Mismatch ({c_y} vs {s_y})"
 
-        return 0, "No Match (Australia)"
+    # 2. Cek Bulan (Partial Logic)
+    if not c_m or not s_m: return 50.0, "Year Match (Month Missing)"
+    if c_m != s_m: return 50.0, "Year Match (Month Mismatch)"
+    
+    # 3. Cek Hari (Full Logic)
+    if not c_d or not s_d: return 75.0, "Year & Month Match (Day Missing)"
+    if c_d != s_d: return 75.0, "Year & Month Match (Day Mismatch)"
 
-    p2 = parse_dob(sanction_dob_str)
-    sanction_year = p2['year']
-
-    if sanction_year is None or cust_year != sanction_year:
-        return 0, "No Match"
-
-    has_month1, has_month2 = customer_dob_parsed['month'] is not None, p2['month'] is not None
-    if not has_month1 or not has_month2 or customer_dob_parsed['month'] != p2['month']:
-        return 50, "Year Match"
-
-    has_day1, has_day2 = customer_dob_parsed['day'] is not None, p2['day'] is not None
-    if not has_day1 or not has_day2 or customer_dob_parsed['day'] != p2['day']:
-        return 75, "Year & Month Match"
-
-    return 100, "Full Match"
+    return 100.0, "Full Match"

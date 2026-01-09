@@ -11,7 +11,7 @@ import os
 
 from typing import List, Dict, Any, Optional
 
-from slis.matching.geo import generate_geographic_insights
+from slis.matching.geo import generate_geographic_insights, get_iso2_code
 
 DEV_FAST_MODE = os.getenv("SLIS_DEV_FAST_MODE", "1") == "1"
 DEV_MAX_TRANSACTIONS = int(os.getenv("SLIS_DEV_MAX_TRANSACTIONS", "20"))
@@ -25,7 +25,7 @@ from slis.models import (
     SanctionEntity,
 )
 
-from slis.matching.dob import calculate_dob_score_flexible
+from slis.matching.dob import calculate_dob_score_structured, parse_dob
 
 
 logger = logging.getLogger(__name__)
@@ -40,27 +40,18 @@ def _normalize_name(name: Optional[str]) -> str:
     return " ".join(s.split())
 
 def _normalize_country(value: Optional[str]) -> str:
-    """Normalisasi citizenship/country (ID, Indonesia -> id / indonesia)."""
     if not value:
         return ""
+    
+    iso_code = get_iso2_code(value)
+    
+    if iso_code:
+        return iso_code.lower()
+    
+    # 2. Fallback: jika tidak ada di kamus, lakukan pembersihan standar
     s = str(value).lower()
     s = re.sub(r"[^a-z0-9]", "", s)
     return s
-
-
-def _parse_dob(value: Optional[str]) -> Optional[date]:
-    """Parse string tanggal lahir ke date, beberapa format umum."""
-    if not value:
-        return None
-    if isinstance(value, date):
-        return value
-    s = str(value).strip()
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
-    return None
 
 
 def get_transaction_name(tx: Transaction, role: str = "sender") -> str:
@@ -147,17 +138,26 @@ def _match_single_entity(
     if name_score < thresholds["name"]:
         return None
 
+    match_logs = []
     dob_score = 0.0
     has_dob = False
     dob_match_desc = None
     
-    q_dob = query_data.get("dob")
-    s_dob = sanction_data.get("dob_raw")
+    q_dob_struct = query_data.get("dob_struct")
+    s_dob_struct = sanction_data.get("dob_struct")
     
-    if q_dob and s_dob:
-        q_dob_str = str(q_dob) if isinstance(q_dob, date) else q_dob
-        score, desc = calculate_dob_score_flexible(q_dob_str, s_dob, sanction_data.get("source"))
+    if q_dob_struct and q_dob_struct.get('year'):
+        score, desc = calculate_dob_score_structured(
+            cust_dob=q_dob_struct,
+            sanction_dob=s_dob_struct,
+            raw_sanction_str=sanction_data.get("dob_raw"),
+            source_code=sanction_data.get("source")
+        )
+
         dob_score = float(score)
+        if dob_score > 0:
+            match_logs.append(f"DOB: {desc}")
+            has_dob = True
         dob_match_desc = desc
         has_dob = True
 
@@ -169,6 +169,7 @@ def _match_single_entity(
     if q_cit and s_cit:
         if q_cit == s_cit:
             cit_score = 100.0
+            match_logs.append(f"Citizenship: {s_cit.upper()}")
         has_cit = True
 
     final_score, scheme = combine_scores(name_score, dob_score, cit_score, has_dob, has_cit)
@@ -182,18 +183,20 @@ def _match_single_entity(
         sanc_geo = {"Citizenship": sanction_data.get("cit_raw")}
         geo_insights = generate_geographic_insights(cust_geo, sanc_geo)
 
+    match_details_str = " | ".join(match_logs) if match_logs else None
+
     return {
         "sanction_id": sanction_data["id"],
         "sanction_name": sanction_data["name"],
         "sanction_source": sanction_data["source"],
-        "sanction_dob": s_dob,
+        "sanction_dob": sanction_data.get("dob_raw"),
         "sanction_citizenship": sanction_data.get("cit_raw"),
         "name_score": round(name_score, 2),
         "dob_score": round(dob_score, 2),
         "citizenship_score": round(cit_score, 2),
         "final_score": round(final_score, 2),
         "scheme": scheme,
-        "match_details": dob_match_desc,
+        "match_details": match_details_str,
         "geographic_insights": geo_insights
     }
 
@@ -349,25 +352,30 @@ def search_single_entity(
     # Optimasi Deduplikasi
     unique_sanction_map = {}
     for s in sanctions:
-        s_name = get_sanction_name(s)
-        if not s_name: continue
-        norm = _normalize_name(s_name)
-        if norm not in unique_sanction_map:
-            unique_sanction_map[norm] = {
+        s_name_norm = s.primary_name_normalized or _normalize_name(s.primary_name)
+        if s_name_norm not in unique_sanction_map:
+            unique_sanction_map[s_name_norm] = {
                 "id": s.id,
-                "name": s_name,
-                "name_norm": norm,
+                "name": s.primary_name,
+                "name_norm": s_name_norm,
+                "dob_struct": {
+                    "year": s.dob_year,
+                    "month": s.dob_month,
+                    "day": s.dob_day
+                },
                 "dob_raw": s.date_of_birth_raw,
                 "cit_raw": s.citizenship,
-                "cit_norm": _normalize_country(s.citizenship),
+                "cit_norm": s.citizenship_normalized or _normalize_country(s.citizenship),
                 "source": s.source.code if s.source else "UNKNOWN"
             }
             
     sanction_list_data = list(unique_sanction_map.values())
+    parsed_dob = parse_dob(dob)
 
     query_data = {
         "name_norm": _normalize_name(query_name),
-        "dob": _parse_dob(dob) if dob else None,
+        "dob_struct": parsed_dob,
+        "dob_original": dob,
         "cit_raw": citizenship,
         "cit_norm": _normalize_country(citizenship) if citizenship else ""
     }
@@ -390,7 +398,7 @@ def search_entities_bulk(
     
     if not queries: return []
 
-    # Optimasi Deduplikasi
+    # 1. Prepare Sanctions (DENGAN STRUCTURED DOB)
     sanctions_orm = db.query(SanctionEntity).filter(SanctionEntity.is_active.is_(True)).all()
     unique_sanction_map = {}
     
@@ -401,6 +409,12 @@ def search_entities_bulk(
                 "id": s.id,
                 "name": s.primary_name,
                 "name_norm": s_name,
+                # [FIX] Tambahkan Structured DOB dari DB
+                "dob_struct": {
+                    "year": s.dob_year,
+                    "month": s.dob_month,
+                    "day": s.dob_day
+                },
                 "dob_raw": s.date_of_birth_raw,
                 "cit_raw": s.citizenship,
                 "cit_norm": _normalize_country(s.citizenship),
@@ -420,9 +434,13 @@ def search_entities_bulk(
             bulk_results.append({"request_id": req_id, "matches": [], "error": "Name required"})
             continue
 
+        raw_dob_query = q.get("date_of_birth")
+        parsed_dob = parse_dob(raw_dob_query)
+
         query_data = {
             "name_norm": _normalize_name(req_name),
-            "dob": q.get("dob"),
+            "dob_struct": parsed_dob,
+            "dob_original": raw_dob_query,
             "cit_raw": q.get("citizenship"),
             "cit_norm": _normalize_country(q.get("citizenship"))
         }

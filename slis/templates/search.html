@@ -2,18 +2,19 @@
 
 {% block head %}
 <style>
+  /* --- LAYOUT UTAMA --- */
   .search-container { max-width: 1200px; margin: 0 auto; }
   .search-header { margin-bottom: 2.5rem; text-align: center; }
   .search-header h1 { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; }
   .search-header p { color: var(--text-secondary); font-size: 0.95rem; margin: 0; }
 
-  /* Form Styles */
+  /* --- FORM & INPUT --- */
   .search-form-card { background-color: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); margin-bottom: 2rem; }
   .search-form-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
   .form-icon { width: 32px; height: 32px; background-color: rgba(14, 165, 233, 0.1); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
   
   .rows-container { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 1.5rem; }
-  .query-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 1rem; padding: 1.5rem; background-color: var(--background); border: 1px solid var(--border); border-radius: 8px; align-items: flex-end; position: relative; }
+  .query-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr auto; gap: 1rem; padding: 1.5rem; background-color: var(--background); border: 1px solid var(--border); border-radius: 8px; align-items: flex-end; position: relative; }
   .query-row-number { position: absolute; top: -12px; left: 12px; background-color: var(--primary-accent); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 600; }
   
   .form-group { display: flex; flex-direction: column; }
@@ -22,413 +23,111 @@
   .label-optional { color: var(--text-light); font-size: 0.75rem; font-weight: 400; }
   .form-control { border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.95rem; background-color: var(--surface); color: var(--text-primary); transition: all 0.2s ease; }
   .form-control:focus { border-color: var(--primary-accent); box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); outline: none; }
-  .form-text { margin-top: 0.35rem; font-size: 0.75rem; color: var(--text-light); }
   
   .row-actions { display: flex; gap: 0.5rem; }
   .btn-remove { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s ease; }
   .btn-remove:hover { background-color: var(--danger); color: white; }
   .btn-add-row { background-color: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px dashed #22c55e; padding: 1rem; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease; text-align: center; display: block; width: 100%; }
   .btn-add-row:hover { background-color: #22c55e; color: white; }
+  
   .info-box { background-color: rgba(14, 165, 233, 0.05); border-left: 4px solid var(--primary-accent); border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem; color: var(--text-primary); font-size: 0.9rem; }
   .form-actions { display: flex; gap: 1rem; justify-content: center; }
   .form-actions .btn { min-width: 150px; }
 
-  /* Loading state below form */
-  .loading-state { 
-    display: none; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 1rem; 
-    padding: 1.5rem; 
-    margin-top: 1rem;
-    background-color: rgba(14, 165, 233, 0.05); 
-    border-radius: 8px;
-    color: var(--text-primary);
-    font-size: 0.95rem;
-  }
+  /* --- LOADING STATE --- */
+  .loading-state { display: none; align-items: center; justify-content: center; gap: 1rem; padding: 1.5rem; margin-top: 1rem; background-color: rgba(14, 165, 233, 0.05); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; }
   .loading-state.show { display: flex; }
-  .loading-spinner {
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(14, 165, 233, 0.2);
-    border-top-color: var(--primary-accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  .loading-spinner { width: 24px; height: 24px; border: 3px solid rgba(14, 165, 233, 0.2); border-top-color: var(--primary-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Results with horizontal card layout */
+  /* --- HASIL PENCARIAN (CARDS) --- */
   .results-container { margin-top: 2rem; }
   .results-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border); }
   
-  /* Horizontal scrollable cards */
-  .name-cards-container {
-    overflow-x: auto;
-    white-space: nowrap;
-    padding: 1rem 0;
-    margin-bottom: 2rem;
-    display: flex;
-    gap: 1rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-accent) var(--background);
-  }
-  .name-cards-container::-webkit-scrollbar {
-    height: 8px;
-  }
-  .name-cards-container::-webkit-scrollbar-track {
-    background: var(--background);
-    border-radius: 4px;
-  }
-  .name-cards-container::-webkit-scrollbar-thumb {
-    background: var(--primary-accent);
-    border-radius: 4px;
-  }
+  .name-cards-container { overflow-x: auto; white-space: nowrap; padding: 1rem 0; margin-bottom: 2rem; display: flex; gap: 1rem; scrollbar-width: thin; }
+  .name-card { min-width: 280px; flex-shrink: 0; background-color: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s ease; white-space: normal; }
+  .name-card:hover { border-color: var(--primary-accent); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15); transform: translateY(-2px); }
+  .name-card.active { border-color: var(--primary-accent); background-color: rgba(14, 165, 233, 0.05); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2); }
+  .name-card-name { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.5rem; }
+  .name-card-matches { display: inline-block; background-color: rgba(14, 165, 233, 0.1); color: var(--primary-accent); padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
   
-  .name-card {
-    min-width: 280px;
-    flex-shrink: 0;
-    background-color: var(--surface);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: normal;
-  }
-  .name-card:hover {
-    border-color: var(--primary-accent);
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
-    transform: translateY(-2px);
-  }
-  .name-card.active {
-    border-color: var(--primary-accent);
-    background-color: rgba(14, 165, 233, 0.05);
-    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
-  }
-  .name-card-name {
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    -webkit-line-clamp: 2;
-    line-clamp: 2; 
-  }
-  .name-card-matches {
-    display: inline-block;
-    background-color: rgba(14, 165, 233, 0.1);
-    color: var(--primary-accent);
-    padding: 0.35rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
+  .name-card-alert { display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600; margin-left: 0.5rem; }
 
-  /* Table with simplified scores */
-  .results-table-container {
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-top: 1rem;
-  }
+  /* --- DROPDOWN INPUT NEGARA --- */
+  .searchable-select-wrapper { position: relative; }
+  .searchable-select-input { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.95rem; background-color: var(--surface); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; }
+  .searchable-select-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background-color: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); max-height: 250px; overflow-y: auto; z-index: 1000; display: none; }
+  .searchable-select-dropdown.show { display: block; }
+  .searchable-select-option { padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); }
+  .searchable-select-option:hover { background-color: rgba(14, 165, 233, 0.08); }
+  
+  .risk-badge-input { position: absolute; right: 35px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; display: none; }
+  .risk-badge-black { display: block; background-color: #dc2626; color: white; }
+  .risk-badge-grey { display: block; background-color: #f59e0b; color: white; }
+  
+  .select-clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 1.1rem; display: none; }
+  .select-clear-btn.show { display: block; }
+
+  /* --- TABEL & DETAIL --- */
+  .results-table-container { background-color: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 1rem; }
   .results-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .results-table th { padding: 1.25rem; text-align: left; font-weight: 600; color: var(--text-primary); white-space: nowrap; background-color: var(--background); border-bottom: 2px solid var(--border); }
-  .results-table td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: top; }
-  .results-table tbody tr:hover { background-color: rgba(14, 165, 233, 0.03); }
-  .results-table tbody tr:last-child td { border-bottom: none; }
-
-  .entity-name { font-weight: 500; color: var(--text-primary); display: block; }
-  .entity-meta { font-size: 0.8rem; color: var(--text-light); margin-top: 2px; }
+  .results-table th { padding: 1.25rem; text-align: left; font-weight: 600; background-color: var(--background); border-bottom: 2px solid var(--border); }
+  .results-table td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); vertical-align: top; }
   
-  .score-badge { display: inline-block; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; font-family: 'Courier New', monospace; }
+  .score-badge { display: inline-block; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; font-family: monospace; }
   .score-high { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
   .score-medium { background-color: rgba(245, 158, 11, 0.1); color: var(--warning); }
   .score-low { background-color: rgba(14, 165, 233, 0.1); color: var(--primary-accent); }
 
-  /* Score breakdown collapsible */
-  .score-cell {
-    position: relative;
-  }
-  .score-breakdown-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    margin-top: 0.5rem;
-    color: var(--text-light);
-    font-size: 0.8rem;
-    transition: color 0.2s ease;
-  }
-  .score-breakdown-btn:hover {
-    color: var(--text-primary);
-  }
-  .score-breakdown-btn .arrow-icon {
-    display: inline-block;
-    transition: transform 0.3s ease;
-    font-size: 0.7rem;
-  }
-  .score-breakdown-btn.expanded .arrow-icon {
-    transform: rotate(180deg);
-  }
+  /* Added score breakdown collapsible styles */
+  .score-breakdown-btn { cursor: pointer; background: none; border: none; color: var(--primary-accent); font-weight: 500; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0; }
+  .score-breakdown-btn:hover { text-decoration: underline; }
+  .score-breakdown-btn .arrow-icon { display: inline-block; transition: transform 0.3s ease; font-size: 0.7rem; }
+  .score-breakdown-btn.expanded .arrow-icon { transform: rotate(180deg); }
+
+  .score-breakdown-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+  .score-breakdown-content.expanded { max-height: 500px; padding-top: 1rem; }
+  .breakdown-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid rgba(14, 165, 233, 0.1); font-size: 0.9rem; }
+  .breakdown-item:last-child { border-bottom: none; }
+  .breakdown-label { color: var(--text-secondary); }
+  .breakdown-value { font-weight: 600; color: var(--text-primary); font-family: monospace; }
+
+  /* Added match type badge styles */
+  .match-type-badge { display: inline-block; background-color: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+
+  .geo-profiling-section { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; background-color: rgba(14, 165, 233, 0.03); border-bottom: 1px solid var(--border); }
+  .geo-profiling-section.expanded { max-height: none; padding: 1.25rem; } 
   
-  .score-breakdown-section {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease, margin 0.3s ease;
-  }
-  .score-breakdown-section.expanded {
-    max-height: 300px;
-    margin-top: 0.75rem;
-  }
-  .score-breakdown-content {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    background-color: rgba(14, 165, 233, 0.03);
-    border-radius: 6px;
-    font-size: 0.85rem;
-  }
-  .score-breakdown-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.35rem 0;
-  }
-  .score-breakdown-label {
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-  .score-breakdown-value {
-    font-family: 'Courier New', monospace;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
+  .geo-insights-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .geo-insights-container.single { grid-template-columns: 1fr; }
   
-  .geo-collapsible-btn { 
-    display: flex; 
-    align-items: center; 
-    gap: 0.5rem; 
-    cursor: pointer; 
-    color: var(--primary-accent); 
-    font-size: 0.85rem; 
-    font-weight: 500; 
-    background: none; 
-    border: none; 
-    padding: 0.5rem 0; 
-    margin-top: 0.5rem;
-    transition: all 0.2s ease;
-  }
-  .geo-collapsible-btn:hover { color: var(--text-primary); }
-  .geo-collapsible-btn .arrow-icon { 
-    display: inline-block; 
-    transition: transform 0.3s ease; 
-  }
-  .geo-collapsible-btn.expanded .arrow-icon { 
-    transform: rotate(180deg); 
-  }
+  .geo-insight-box { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #fcd34d; border-radius: 8px; padding: 1rem; color: #92400e; }
+  .geo-insight-country { display: inline-block; background-color: #f59e0b; color: white; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; }
+  .geo-insight-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+  .geo-insight-text { font-size: 0.9rem; line-height: 1.5; color: #78350f; }
+  
+  .geo-insights-list { list-style: none; padding: 0; margin: 0; }
+  .geo-insights-list li { padding: 0.35rem 0; color: #b45309; }
+  .geo-insights-list li:before { content: '⚠️ '; margin-right: 0.5rem; }
 
-  .geo-profiling-section { 
-    max-height: 0; 
-    overflow: hidden; 
-    transition: max-height 0.3s ease, padding 0.3s ease; 
-    background-color: rgba(14, 165, 233, 0.03); 
-    border-bottom: 1px solid var(--border);
-  }
-  .geo-profiling-section.expanded { 
-    max-height: 500px; 
-    padding: 1.25rem; 
-  }
+  .geo-warning-box { margin: 1rem; padding: 1rem; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; display: flex; gap: 1rem; align-items: flex-start; }
+  
+  .geo-collapsible-btn { cursor: pointer; color: var(--primary-accent); border: none; background: none; font-weight: 500; font-size: 0.85rem; }
+  .geo-collapsible-btn .arrow-icon { display: inline-block; transition: transform 0.3s ease; }
+  .geo-collapsible-btn.expanded .arrow-icon { transform: rotate(180deg); }
 
-  .geo-profiling-content { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.75rem; 
-  }
+  .match-details-container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+  .match-details-container.single { grid-template-columns: 1fr; }
+  
+  .match-detail-box { background: linear-gradient(135deg, #e0f2fe 0%, #cffafe 100%); border: 1px solid #a5f3fc; border-radius: 8px; padding: 1rem; color: #0c4a6e; }
+  .match-detail-type { display: inline-block; background-color: #0ea5e9; color: white; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.75rem; }
+  .match-detail-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem; }
+  .match-detail-text { font-size: 0.9rem; line-height: 1.5; color: #164e63; }
 
-  .geo-item { 
-    display: flex; 
-    align-items: flex-start; 
-    gap: 0.75rem; 
-    padding: 0.75rem; 
-    background-color: var(--surface); 
-    border-radius: 6px; 
-    border-left: 3px solid var(--primary-accent);
-  }
-  .geo-item-icon { 
-    font-size: 1rem; 
-    flex-shrink: 0; 
-    margin-top: 2px;
-  }
-  .geo-item-content { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 0.25rem; 
-  }
-  .geo-item-label { 
-    font-weight: 500; 
-    color: var(--text-primary); 
-    font-size: 0.9rem; 
-  }
-  .geo-item-value { 
-    color: var(--text-secondary); 
-    font-size: 0.85rem; 
-  }
-
-  .geo-insights-box { 
-    background-color: #fef3c7; 
-    border: 1px solid #fcd34d; 
-    border-radius: 6px; 
-    padding: 0.75rem; 
-    color: #92400e; 
-    font-size: 0.85rem;
-  }
-  .geo-insights-box strong { 
-    display: block; 
-    font-weight: 600; 
-    margin-bottom: 0.5rem; 
-  }
-  .geo-insights-list { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-  }
-  .geo-insights-list li { 
-    padding: 0.35rem 0; 
-  }
-  .geo-insights-list li:before { 
-    content: '⚠️ '; 
-    margin-right: 0.5rem; 
-  }
-
-  /* Responsive */
   @media (max-width: 768px) {
-    .query-row { grid-template-columns: 1fr; padding-top: 2rem; }
-    .query-row-number { top: -6px; }
-    .row-actions { grid-column: 1 / -1; }
-    .results-table th, .results-table td { padding: 0.75rem 0.5rem; font-size: 0.8rem; }
-    .geo-profiling-section.expanded { max-height: 600px; }
-    .name-card { min-width: 220px; }
-  }
-
-  /* Adding searchable select dropdown styles */
-  .searchable-select-wrapper {
-    position: relative;
-  }
-  
-  .searchable-select-input {
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.75rem;
-    font-size: 0.95rem;
-    background-color: var(--surface);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-  }
-  
-  .searchable-select-input:focus {
-    border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-    outline: none;
-    cursor: text;
-  }
-  
-  .searchable-select-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background-color: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    max-height: 250px;
-    overflow-y: auto;
-    z-index: 1000;
-    display: none;
-  }
-  
-  .searchable-select-dropdown.show {
-    display: block;
-  }
-  
-  .searchable-select-option {
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .searchable-select-option:hover {
-    background-color: rgba(14, 165, 233, 0.08);
-  }
-  
-  .searchable-select-option.selected {
-    background-color: rgba(14, 165, 233, 0.12);
-    font-weight: 500;
-  }
-  
-  .searchable-select-option .country-flag {
-    font-size: 1.1rem;
-  }
-  
-  .searchable-select-option .country-info {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .searchable-select-option .country-name {
-    font-weight: 500;
-  }
-  
-  .searchable-select-option .country-code {
-    font-size: 0.75rem;
-    color: var(--text-light);
-  }
-  
-  .searchable-select-empty {
-    padding: 1rem;
-    text-align: center;
-    color: var(--text-light);
-    font-size: 0.85rem;
-  }
-  
-  .select-clear-btn {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--text-light);
-    cursor: pointer;
-    padding: 0.25rem;
-    font-size: 1.1rem;
-    display: none;
-    transition: color 0.2s ease;
-  }
-  
-  .select-clear-btn:hover {
-    color: var(--danger);
-  }
-  
-  .select-clear-btn.show {
-    display: block;
+    .query-row { grid-template-columns: 1fr; }
+    .geo-insights-container { grid-template-columns: 1fr; }
+    .match-details-container { grid-template-columns: 1fr; }
   }
 </style>
 {% endblock %}
@@ -446,8 +145,8 @@
       Masukkan Data Nasabah
     </div>
     <div class="info-box">
-      <strong>Cara Menggunakan:</strong>
-      Tambahkan baris untuk setiap nasabah yang ingin dicek. Klik "Lakukan Screening" untuk memproses semua sekaligus.
+      <strong>Info Risiko:</strong>
+      Data negara berisiko (Black/Grey List) diambil secara dinamis dari database Geo Management yang Anda kelola.
     </div>
 
     <form id="bulkSearchForm">
@@ -457,7 +156,6 @@
         <a href="{{ url_for('web.index') }}" class="btn btn-outline-primary">Kembali</a>
         <button type="submit" class="btn btn-primary" id="submitBtn">Lakukan Screening →</button>
       </div>
-      <!-- Loading state below form instead of button -->
       <div class="loading-state" id="loadingState">
         <div class="loading-spinner"></div>
         <span>Screening sedang dilakukan, harap tunggu...</span>
@@ -465,16 +163,13 @@
     </form>
   </div>
 
-  <!-- Results container with horizontal cards -->
   <div id="resultsContainer" style="display: none;">
     <div class="results-container">
       <div class="results-header">
         <h2>Hasil Pencarian</h2>
         <div class="results-info" id="resultsInfo"></div>
       </div>
-      <!-- Horizontal scrollable cards for name selection -->
       <div class="name-cards-container" id="nameCardsContainer"></div>
-      <!-- Table for selected name's matches -->
       <div id="resultsTableContainer"></div>
     </div>
   </div>
@@ -484,23 +179,30 @@
   <div class="query-row">
     <div class="query-row-number">-</div>
     <div class="form-group">
-      <label class="form-label" for="query-name">Nama Nasabah <span class="label-required">*</span></label>
-      <input type="text" id="query-name" class="form-control query-name" placeholder="Contoh: Budi Santoso" required>
+      <label class="form-label">Nama Nasabah <span class="label-required">*</span></label>
+      <input type="text" class="form-control query-name" placeholder="Contoh: Budi Santoso" required>
     </div>
     <div class="form-group">
-      <label class="form-label" for="query-dob">Tanggal Lahir <span class="label-optional">(Opsional)</span></label>
-      <input type="date" id="query-dob" class="form-control query-dob">
+      <label class="form-label">Tanggal Lahir <span class="label-optional">(Opsional)</span></label>
+      {# Updated DOB input to support partial dates #}
+      <div class="form-group">
+  <div style="display:flex; gap:0.5rem">
+    <input type="text" class="form-control dob-year" placeholder="YYYY" maxlength="4">
+    <input type="text" class="form-control dob-month" placeholder="MM" maxlength="2">
+    <input type="text" class="form-control dob-day" placeholder="DD" maxlength="2">
+  </div>
+  <small style="color: var(--text-light); font-size:0.8rem; margin-top:0.25rem">
+    Isi Tahun saja, Bulan+Tahun, atau lengkap. Tidak boleh hanya tanggal.
+  </small>
+</div>
+
+      <small style="color: var(--text-light); margin-top: 0.25rem; font-size: 0.8rem;">Format: YYYY (2000) atau YYYY-MM (2000-01) atau YYYY-MM-DD (2000-01-15)</small>
     </div>
     <div class="form-group">
-      <label class="form-label" for="query-citizenship">Kewarganegaraan <span class="label-optional">(Opsional)</span></label>
+      <label class="form-label">Kewarganegaraan <span class="label-optional">(Opsional)</span></label>
       <div class="searchable-select-wrapper">
-        <input
-          type="text"
-          id="query-citizenship"
-          class="searchable-select-input query-citizenship"
-          placeholder="Ketik atau pilih negara..."
-          autocomplete="off"
-        >
+        <input type="text" class="searchable-select-input query-citizenship" placeholder="Pilih negara..." autocomplete="off">
+        <span class="risk-badge-input"></span>
         <button type="button" class="select-clear-btn" onclick="clearSelection(this)">×</button>
         <div class="searchable-select-dropdown"></div>
       </div>
@@ -512,6 +214,7 @@
 </template>
 
 <script>
+  // === 1. LOAD STATIC COUNTRY DATA (Untuk Dropdown saja) ===
   const COUNTRIES = [
     { code: 'AF', code3: 'AFG', nameEn: 'Afghanistan', nameId: 'Afganistan', flag: '🇦🇫' },
     { code: 'AL', code3: 'ALB', nameEn: 'Albania', nameId: 'Albania', flag: '🇦🇱' },
@@ -602,308 +305,488 @@
     { code: 'IR', code3: 'IRN', nameEn: 'Iran', nameId: 'Iran', flag: '🇮🇷' },
     { code: 'IQ', code3: 'IRQ', nameEn: 'Iraq', nameId: 'Irak', flag: '🇮🇶' },
     { code: 'IE', code3: 'IRL', nameEn: 'Ireland', nameId: 'Irlandia', flag: '🇮🇪' },
-    { code: 'IL', code3: 'ISR', nameEn: 'Israel', nameId: 'Israel', flag: '🇮🇱' },
-    { code: 'IT', code3: 'ITA', nameEn: 'Italy', nameId: 'Italia', flag: '🇮🇹' },
-
-    { code: 'JM', code3: 'JAM', nameEn: 'Jamaica', nameId: 'Jamaika', flag: '🇯🇲' },
-    { code: 'JP', code3: 'JPN', nameEn: 'Japan', nameId: 'Jepang', flag: '🇯🇵' },
-    { code: 'JO', code3: 'JOR', nameEn: 'Jordan', nameId: 'Yordania', flag: '🇯🇴' },
-
-    { code: 'KZ', code3: 'KAZ', nameEn: 'Kazakhstan', nameId: 'Kazakhstan', flag: '🇰🇿' },
-    { code: 'KE', code3: 'KEN', nameEn: 'Kenya', nameId: 'Kenya', flag: '🇰🇪' },
-    { code: 'KI', code3: 'KIR', nameEn: 'Kiribati', nameId: 'Kiribati', flag: '🇰🇮' },
-    { code: 'KW', code3: 'KWT', nameEn: 'Kuwait', nameId: 'Kuwait', flag: '🇰🇼' },
-    { code: 'KG', code3: 'KGZ', nameEn: 'Kyrgyzstan', nameId: 'Kirgizstan', flag: '🇰🇬' },
-
-    { code: 'LA', code3: 'LAO', nameEn: 'Laos', nameId: 'Laos', flag: '🇱🇦' },
-    { code: 'LV', code3: 'LVA', nameEn: 'Latvia', nameId: 'Latvia', flag: '🇱🇻' },
-    { code: 'LB', code3: 'LBN', nameEn: 'Lebanon', nameId: 'Lebanon', flag: '🇱🇧' },
-    { code: 'LS', code3: 'LSO', nameEn: 'Lesotho', nameId: 'Lesotho', flag: '🇱🇸' },
-    { code: 'LR', code3: 'LBR', nameEn: 'Liberia', nameId: 'Liberia', flag: '🇱🇷' },
-    { code: 'LY', code3: 'LBY', nameEn: 'Libya', nameId: 'Libya', flag: '🇱🇾' },
-    { code: 'LI', code3: 'LIE', nameEn: 'Liechtenstein', nameId: 'Liechtenstein', flag: '🇱🇮' },
-    { code: 'LT', code3: 'LTU', nameEn: 'Lithuania', nameId: 'Lithuania', flag: '🇱🇹' },
-    { code: 'LU', code3: 'LUX', nameEn: 'Luxembourg', nameId: 'Luksemburg', flag: '🇱🇺' },
-
-    { code: 'MG', code3: 'MDG', nameEn: 'Madagascar', nameId: 'Madagaskar', flag: '🇲🇬' },
-    { code: 'MW', code3: 'MWI', nameEn: 'Malawi', nameId: 'Malawi', flag: '🇲🇼' },
-    { code: 'MY', code3: 'MYS', nameEn: 'Malaysia', nameId: 'Malaysia', flag: '🇲🇾' },
-    { code: 'MV', code3: 'MDV', nameEn: 'Maldives', nameId: 'Maladewa', flag: '🇲🇻' },
-    { code: 'ML', code3: 'MLI', nameEn: 'Mali', nameId: 'Mali', flag: '🇲🇱' },
-    { code: 'MT', code3: 'MLT', nameEn: 'Malta', nameId: 'Malta', flag: '🇲🇹' },
-    { code: 'MH', code3: 'MHL', nameEn: 'Marshall Islands', nameId: 'Kepulauan Marshall', flag: '🇲🇭' },
-    { code: 'MR', code3: 'MRT', nameEn: 'Mauritania', nameId: 'Mauritania', flag: '🇲🇷' },
-    { code: 'MU', code3: 'MUS', nameEn: 'Mauritius', nameId: 'Mauritius', flag: '🇲🇺' },
-    { code: 'MX', code3: 'MEX', nameEn: 'Mexico', nameId: 'Meksiko', flag: '🇲🇽' },
-    { code: 'FM', code3: 'FSM', nameEn: 'Micronesia', nameId: 'Mikronesia', flag: '🇫🇲' },
-    { code: 'MD', code3: 'MDA', nameEn: 'Moldova', nameId: 'Moldova', flag: '🇲🇩' },
-    { code: 'MC', code3: 'MCO', nameEn: 'Monaco', nameId: 'Monako', flag: '🇲🇨' },
-    { code: 'MN', code3: 'MNG', nameEn: 'Mongolia', nameId: 'Mongolia', flag: '🇲🇳' },
-    { code: 'ME', code3: 'MNE', nameEn: 'Montenegro', nameId: 'Montenegro', flag: '🇲🇪' },
-    { code: 'MA', code3: 'MAR', nameEn: 'Morocco', nameId: 'Maroko', flag: '🇲🇦' },
-    { code: 'MZ', code3: 'MOZ', nameEn: 'Mozambique', nameId: 'Mozambik', flag: '🇲🇿' },
-    { code: 'MM', code3: 'MMR', nameEn: 'Myanmar', nameId: 'Myanmar', flag: '🇲🇲' },
-
-    { code: 'NA', code3: 'NAM', nameEn: 'Namibia', nameId: 'Namibia', flag: '🇳🇦' },
-    { code: 'NR', code3: 'NRU', nameEn: 'Nauru', nameId: 'Nauru', flag: '🇳🇷' },
-    { code: 'NP', code3: 'NPL', nameEn: 'Nepal', nameId: 'Nepal', flag: '🇳🇵' },
-    { code: 'NL', code3: 'NLD', nameEn: 'Netherlands', nameId: 'Belanda', flag: '🇳🇱' },
-    { code: 'NZ', code3: 'NZL', nameEn: 'New Zealand', nameId: 'Selandia Baru', flag: '🇳🇿' },
-    { code: 'NI', code3: 'NIC', nameEn: 'Nicaragua', nameId: 'Nikaragua', flag: '🇳🇮' },
-    { code: 'NE', code3: 'NER', nameEn: 'Niger', nameId: 'Niger', flag: '🇳🇪' },
-    { code: 'NG', code3: 'NGA', nameEn: 'Nigeria', nameId: 'Nigeria', flag: '🇳🇬' },
-    { code: 'KP', code3: 'PRK', nameEn: 'North Korea', nameId: 'Korea Utara', flag: '🇰🇵' },
-    { code: 'MK', code3: 'MKD', nameEn: 'North Macedonia', nameId: 'Makedonia Utara', flag: '🇲🇰' },
-    { code: 'NO', code3: 'NOR', nameEn: 'Norway', nameId: 'Norwegia', flag: '🇳🇴' },
-
-    { code: 'OM', code3: 'OMN', nameEn: 'Oman', nameId: 'Oman', flag: '🇴🇲' },
-
-    { code: 'PK', code3: 'PAK', nameEn: 'Pakistan', nameId: 'Pakistan', flag: '🇵🇰' },
-    { code: 'PW', code3: 'PLW', nameEn: 'Palau', nameId: 'Palau', flag: '🇵🇼' },
-    { code: 'PS', code3: 'PSE', nameEn: 'Palestine', nameId: 'Palestina', flag: '🇵🇸' },
-    { code: 'PA', code3: 'PAN', nameEn: 'Panama', nameId: 'Panama', flag: '🇵🇦' },
-    { code: 'PG', code3: 'PNG', nameEn: 'Papua New Guinea', nameId: 'Papua Nugini', flag: '🇵🇬' },
-    { code: 'PY', code3: 'PRY', nameEn: 'Paraguay', nameId: 'Paraguay', flag: '🇵🇾' },
-    { code: 'PE', code3: 'PER', nameEn: 'Peru', nameId: 'Peru', flag: '🇵🇪' },
-    { code: 'PH', code3: 'PHL', nameEn: 'Philippines', nameId: 'Filipina', flag: '🇵🇭' },
-    { code: 'PL', code3: 'POL', nameEn: 'Poland', nameId: 'Polandia', flag: '🇵🇱' },
-    { code: 'PT', code3: 'PRT', nameEn: 'Portugal', nameId: 'Portugal', flag: '🇵🇹' },
-
-    { code: 'QA', code3: 'QAT', nameEn: 'Qatar', nameId: 'Qatar', flag: '🇶🇦' },
-
-    { code: 'RO', code3: 'ROU', nameEn: 'Romania', nameId: 'Rumania', flag: '🇷🇴' },
-    { code: 'RU', code3: 'RUS', nameEn: 'Russia', nameId: 'Rusia', flag: '🇷🇺' },
-    { code: 'RW', code3: 'RWA', nameEn: 'Rwanda', nameId: 'Rwanda', flag: '🇷🇼' },
-
-    { code: 'KN', code3: 'KNA', nameEn: 'Saint Kitts and Nevis', nameId: 'Saint Kitts dan Nevis', flag: '🇰🇳' },
-    { code: 'LC', code3: 'LCA', nameEn: 'Saint Lucia', nameId: 'Saint Lucia', flag: '🇱🇨' },
-    { code: 'VC', code3: 'VCT', nameEn: 'Saint Vincent and the Grenadines', nameId: 'Saint Vincent dan Grenadines', flag: '🇻🇨' },
-    { code: 'WS', code3: 'WSM', nameEn: 'Samoa', nameId: 'Samoa', flag: '🇼🇸' },
-    { code: 'SM', code3: 'SMR', nameEn: 'San Marino', nameId: 'San Marino', flag: '🇸🇲' },
-    { code: 'ST', code3: 'STP', nameEn: 'Sao Tome and Principe', nameId: 'Sao Tome dan Principe', flag: '🇸🇹' },
-    { code: 'SA', code3: 'SAU', nameEn: 'Saudi Arabia', nameId: 'Arab Saudi', flag: '🇸🇦' },
-    { code: 'SN', code3: 'SEN', nameEn: 'Senegal', nameId: 'Senegal', flag: '🇸🇳' },
-    { code: 'RS', code3: 'SRB', nameEn: 'Serbia', nameId: 'Serbia', flag: '🇷🇸' },
-    { code: 'SC', code3: 'SYC', nameEn: 'Seychelles', nameId: 'Seychelles', flag: '🇸🇨' },
-    { code: 'SL', code3: 'SLE', nameEn: 'Sierra Leone', nameId: 'Sierra Leone', flag: '🇸🇱' },
-    { code: 'SG', code3: 'SGP', nameEn: 'Singapore', nameId: 'Singapura', flag: '🇸🇬' },
-    { code: 'SK', code3: 'SVK', nameEn: 'Slovakia', nameId: 'Slovakia', flag: '🇸🇰' },
-    { code: 'SI', code3: 'SVN', nameEn: 'Slovenia', nameId: 'Slovenia', flag: '🇸🇮' },
-    { code: 'SB', code3: 'SLB', nameEn: 'Solomon Islands', nameId: 'Kepulauan Solomon', flag: '🇸🇧' },
-    { code: 'SO', code3: 'SOM', nameEn: 'Somalia', nameId: 'Somalia', flag: '🇸🇴' },
-    { code: 'ZA', code3: 'ZAF', nameEn: 'South Africa', nameId: 'Afrika Selatan', flag: '🇿🇦' },
-    { code: 'KR', code3: 'KOR', nameEn: 'South Korea', nameId: 'Korea Selatan', flag: '🇰🇷' },
-    { code: 'SS', code3: 'SSD', nameEn: 'South Sudan', nameId: 'Sudan Selatan', flag: '🇸🇸' },
-    { code: 'ES', code3: 'ESP', nameEn: 'Spain', nameId: 'Spanyol', flag: '🇪🇸' },
-    { code: 'LK', code3: 'LKA', nameEn: 'Sri Lanka', nameId: 'Sri Lanka', flag: '🇱🇰' },
-    { code: 'SD', code3: 'SDN', nameEn: 'Sudan', nameId: 'Sudan', flag: '🇸🇩' },
-    { code: 'SR', code3: 'SUR', nameEn: 'Suriname', nameId: 'Suriname', flag: '🇸🇷' },
-    { code: 'SE', code3: 'SWE', nameEn: 'Sweden', nameId: 'Swedia', flag: '🇸🇪' },
-    { code: 'CH', code3: 'CHE', nameEn: 'Switzerland', nameId: 'Swiss', flag: '🇨🇭' },
-    { code: 'SY', code3: 'SYR', nameEn: 'Syria', nameId: 'Suriah', flag: '🇸🇾' },
-
-    { code: 'TW', code3: 'TWN', nameEn: 'Taiwan', nameId: 'Taiwan', flag: '🇹🇼' },
-    { code: 'TJ', code3: 'TJK', nameEn: 'Tajikistan', nameId: 'Tajikistan', flag: '🇹🇯' },
-    { code: 'TZ', code3: 'TZA', nameEn: 'Tanzania', nameId: 'Tanzania', flag: '🇹🇿' },
-    { code: 'TH', code3: 'THA', nameEn: 'Thailand', nameId: 'Thailand', flag: '🇹🇭' },
-    { code: 'TL', code3: 'TLS', nameEn: 'Timor-Leste', nameId: 'Timor Leste', flag: '🇹🇱' },
-    { code: 'TG', code3: 'TGO', nameEn: 'Togo', nameId: 'Togo', flag: '🇹🇬' },
-    { code: 'TO', code3: 'TON', nameEn: 'Tonga', nameId: 'Tonga', flag: '🇹🇴' },
-    { code: 'TT', code3: 'TTO', nameEn: 'Trinidad and Tobago', nameId: 'Trinidad dan Tobago', flag: '🇹🇹' },
-    { code: 'TN', code3: 'TUN', nameEn: 'Tunisia', nameId: 'Tunisia', flag: '🇹🇳' },
-    { code: 'TR', code3: 'TUR', nameEn: 'Turkey', nameId: 'Turki', flag: '🇹🇷' },
-    { code: 'TM', code3: 'TKM', nameEn: 'Turkmenistan', nameId: 'Turkmenistan', flag: '🇹🇲' },
-    { code: 'TV', code3: 'TUV', nameEn: 'Tuvalu', nameId: 'Tuvalu', flag: '🇹🇻' },
-
-    { code: 'UG', code3: 'UGA', nameEn: 'Uganda', nameId: 'Uganda', flag: '🇺🇬' },
-    { code: 'UA', code3: 'UKR', nameEn: 'Ukraine', nameId: 'Ukraina', flag: '🇺🇦' },
-    { code: 'AE', code3: 'ARE', nameEn: 'United Arab Emirates', nameId: 'Uni Emirat Arab', flag: '🇦🇪' },
-    { code: 'GB', code3: 'GBR', nameEn: 'United Kingdom', nameId: 'Inggris Raya', flag: '🇬🇧' },
-    { code: 'US', code3: 'USA', nameEn: 'United States', nameId: 'Amerika Serikat', flag: '🇺🇸' },
-    { code: 'UY', code3: 'URY', nameEn: 'Uruguay', nameId: 'Uruguay', flag: '🇺🇾' },
-    { code: 'UZ', code3: 'UZB', nameEn: 'Uzbekistan', nameId: 'Uzbekistan', flag: '🇺🇿' },
-
-    { code: 'VU', code3: 'VUT', nameEn: 'Vanuatu', nameId: 'Vanuatu', flag: '🇻🇺' },
-    { code: 'VA', code3: 'VAT', nameEn: 'Vatican City', nameId: 'Vatikan', flag: '🇻🇦' },
-    { code: 'VE', code3: 'VEN', nameEn: 'Venezuela', nameId: 'Venezuela', flag: '🇻🇪' },
-    { code: 'VN', code3: 'VNM', nameEn: 'Vietnam', nameId: 'Vietnam', flag: '🇻🇳' },
-
-    { code: 'YE', code3: 'YEM', nameEn: 'Yemen', nameId: 'Yaman', flag: '🇾🇪' },
-
-    { code: 'ZM', code3: 'ZMB', nameEn: 'Zambia', nameId: 'Zambia', flag: '🇿🇲' },
-    { code: 'ZW', code3: 'ZWE', nameEn: 'Zimbabwe', nameId: 'Zimbabwe', flag: '🇿🇼' },
+    { code: 'IL', code3: 'ISR', nameEn: 'Israel', nameId: 'Israel' }
   ];
 
-  let rowCount = 0;
+  // Dynamic lists for risk checking (updated by JS later if needed)
+  const dynamicBlackList = ['AF', 'AL']; // Example
+  const dynamicGreyList = ['DZ', 'AD']; // Example
+  let allResults = [];
 
-  function addQueryRow() {
-    rowCount++;
-    const template = document.getElementById('queryRowTemplate');
-    const clone = template.content.cloneNode(true);
-    const rowsContainer = document.getElementById('rowsContainer');
+  // ===========================================
+  // === LOGIKA SEARCHABLE DROPDOWN (PENTING) ===
+  // ===========================================
+  
+  // Fungsi untuk mengaktifkan dropdown pada satu baris
+  function setupSearchableDropdown(rowElement) {
+    const wrapper = rowElement.querySelector('.searchable-select-wrapper');
+    const input = wrapper.querySelector('.searchable-select-input');
+    const dropdown = wrapper.querySelector('.searchable-select-dropdown');
+    const clearBtn = wrapper.querySelector('.select-clear-btn');
+    const badge = wrapper.querySelector('.risk-badge-input');
 
-    const queryRow = clone.querySelector('.query-row');
-    queryRow.querySelector('.query-row-number').textContent = rowCount;
-
-    // Associate labels with inputs for accessibility
-    const nameLabel = queryRow.querySelector('.form-label');
-    const nameInput = queryRow.querySelector('.query-name');
-    const nameId = `query-name-${rowCount}`;
-    nameInput.id = nameId;
-    nameLabel.setAttribute('for', nameId);
-
-    const dobLabel = queryRow.querySelectorAll('.form-label')[1];
-    const dobInput = queryRow.querySelector('.query-dob');
-    const dobId = `query-dob-${rowCount}`;
-    dobInput.id = dobId;
-    dobLabel.setAttribute('for', dobId);
-
-    const citizenshipLabel = queryRow.querySelectorAll('.form-label')[2];
-    const citizenshipInput = queryRow.querySelector('.query-citizenship');
-    const citizenshipId = `query-citizenship-${rowCount}`;
-    citizenshipInput.id = citizenshipId;
-    citizenshipLabel.setAttribute('for', citizenshipId);
-
-    const selectWrapper = queryRow.querySelector('.searchable-select-wrapper');
-    const selectInput = selectWrapper.querySelector('.searchable-select-input');
-    const dropdown = selectWrapper.querySelector('.searchable-select-dropdown');
-    const clearBtn = selectWrapper.querySelector('.select-clear-btn');
-
-    // Generate dropdown options with bilingual support
-    renderCountryOptions(dropdown, COUNTRIES);
-
-    selectInput.addEventListener('focus', function() {
-      dropdown.classList.add('show');
-    });
-
-    selectInput.addEventListener('input', function(e) {
-      const searchTerm = e.target.value.toLowerCase().trim();
-      const filtered = COUNTRIES.filter(country => 
-        country.nameId.toLowerCase().includes(searchTerm) ||
-        country.nameEn.toLowerCase().includes(searchTerm) ||
-        country.code.toLowerCase().includes(searchTerm) ||
-        country.code3.toLowerCase().includes(searchTerm)
-      );
-      renderCountryOptions(dropdown, filtered);
-      dropdown.classList.add('show');
+    // Render ulang opsi dropdown (semua negara)
+    function renderOptions(filterText = '') {
+      dropdown.innerHTML = '';
+      const lowerFilter = filterText.toLowerCase();
       
-      // Show/hide clear button
-      clearBtn.classList.toggle('show', e.target.value.length > 0);
+      const filtered = COUNTRIES.filter(c => 
+        c.nameEn.toLowerCase().includes(lowerFilter) || 
+        c.nameId.toLowerCase().includes(lowerFilter) ||
+        c.code.toLowerCase().includes(lowerFilter)
+      );
+
+      if (filtered.length === 0) {
+        dropdown.innerHTML = '<div style="padding:0.75rem;color:#888;text-align:center">Tidak ditemukan</div>';
+        return;
+      }
+
+      filtered.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'searchable-select-option';
+        div.innerHTML = `<span>${c.flag}</span> <span>${c.nameId} (${c.nameEn})</span>`;
+        div.onclick = () => selectCountry(c, input, dropdown, clearBtn, badge);
+        dropdown.appendChild(div);
+      });
+    }
+
+    // Event Listeners Input
+    input.addEventListener('focus', () => {
+      renderOptions();
+      dropdown.classList.add('show');
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-      if (!selectWrapper.contains(e.target)) {
+    input.addEventListener('input', (e) => {
+      renderOptions(e.target.value);
+      dropdown.classList.add('show');
+      // Reset state jika user ketik manual
+      input.dataset.selectedCode = '';
+      badge.style.display = 'none';
+      clearBtn.classList.add('show');
+    });
+
+    // Close dropdown saat klik di luar
+    document.addEventListener('click', (e) => {
+      if (!wrapper.contains(e.target)) {
         dropdown.classList.remove('show');
       }
     });
-
-    rowsContainer.appendChild(clone);
-    updateRemoveButtons();
   }
 
-  function renderCountryOptions(dropdown, countries) {
-    if (countries.length === 0) {
-      dropdown.innerHTML = '<div class="searchable-select-empty">Negara tidak ditemukan</div>';
-      return;
+  // Fungsi saat negara dipilih
+  function selectCountry(country, input, dropdown, clearBtn, badge) {
+    input.value = country.nameId; // Tampilkan nama Indonesia
+    input.dataset.selectedCode = country.code; // Simpan kode ISO
+    dropdown.classList.remove('show');
+    clearBtn.classList.add('show');
+
+    // Cek risiko (visual saja di form)
+    const isBlack = dynamicBlackList.includes(country.code);
+    const isGrey = dynamicGreyList.includes(country.code);
+
+    badge.className = 'risk-badge-input'; // Reset class
+    if (isBlack) {
+      badge.textContent = 'BLACK LIST';
+      badge.classList.add('risk-badge-black');
+      badge.style.display = 'block';
+    } else if (isGrey) {
+      badge.textContent = 'GREY LIST';
+      badge.classList.add('risk-badge-grey');
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
     }
+  }
 
-    dropdown.innerHTML = countries.map(country => `
-      <div class="searchable-select-option" 
-           data-code="${country.code}" 
-           data-name-id="${country.nameId}"
-           data-name-en="${country.nameEn}"
-           data-code3="${country.code3}">
-        <span class="country-flag">${country.flag}</span>
-        <div class="country-info">
-          <span class="country-name">${country.nameId}</span>
-          <span class="country-code">${country.code} / ${country.code3}</span>
-        </div>
-      </div>
-    `).join('');
+  // ===========================================
+  // === LOGIKA ROW & FORM UTAMA ===
+  // ===========================================
 
-    // Add click handlers to options
-    dropdown.querySelectorAll('.searchable-select-option').forEach(option => {
-      option.addEventListener('click', function() {
-        const wrapper = this.closest('.searchable-select-wrapper');
-        const input = wrapper.querySelector('.searchable-select-input');
-        const clearBtn = wrapper.querySelector('.select-clear-btn');
-        const dropdownEl = wrapper.querySelector('.searchable-select-dropdown');
-        
-        const nameId = this.dataset.nameId;
-        const code = this.dataset.code;
-        
-        input.value = nameId;
-        input.dataset.selectedCode = code;
-        dropdownEl.classList.remove('show');
-        clearBtn.classList.add('show');
-      });
+  function addQueryRow() {
+    const rowsContainer = document.getElementById('rowsContainer');
+    const template = document.getElementById('queryRowTemplate');
+    const newRow = template.content.cloneNode(true);
+    
+    // Setup dropdown untuk row baru ini
+    const rowDiv = newRow.querySelector('.query-row');
+    setupSearchableDropdown(rowDiv);
+    
+    rowsContainer.appendChild(newRow);
+    updateRowNumbers();
+  }
+
+  function removeQueryRow(btn) {
+    const row = btn.closest('.query-row');
+    row.parentNode.removeChild(row);
+    updateRowNumbers();
+  }
+
+  function updateRowNumbers() {
+    const rows = document.querySelectorAll('.query-row');
+    rows.forEach((row, idx) => {
+      row.querySelector('.query-row-number').textContent = idx + 1;
     });
   }
 
   function clearSelection(btn) {
     const wrapper = btn.closest('.searchable-select-wrapper');
     const input = wrapper.querySelector('.searchable-select-input');
+    const badge = wrapper.querySelector('.risk-badge-input');
+    
     input.value = '';
-    delete input.dataset.selectedCode;
+    input.dataset.selectedCode = '';
+    badge.style.display = 'none';
     btn.classList.remove('show');
-    input.focus();
   }
 
-  function removeQueryRow(btn) {
-    const row = btn.closest('.query-row');
-    row.remove();
-    updateRemoveButtons();
-    updateRowNumbers();
-  }
-
-  function updateRemoveButtons() {
-    const rows = document.querySelectorAll('.query-row');
-    const removeButtons = document.querySelectorAll('.btn-remove');
-    removeButtons.forEach(btn => {
-      btn.style.display = rows.length > 1 ? 'block' : 'none';
-    });
-  }
-
-  function updateRowNumbers() {
-    const rows = document.querySelectorAll('.query-row');
-    rows.forEach((row, index) => {
-      row.querySelector('.query-row-number').textContent = index + 1;
-    });
-    rowCount = rows.length;
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
+  // Init Row Pertama saat Load
+  document.addEventListener('DOMContentLoaded', () => {
     addQueryRow();
   });
-</script>
 
-<script>
-  // Submit handler updated for loading state and new displayResults
+  // ===========================================
+  // === LOGIKA DISPLAY HASIL (Sama spt sblmnya) ===
+  // ===========================================
+
+  function displayResults(results) {
+    allResults = results;
+    const cardContainer = document.getElementById('nameCardsContainer');
+    const tableContainer = document.getElementById('resultsTableContainer');
+    
+    document.getElementById('resultsContainer').style.display = 'block';
+    cardContainer.innerHTML = '';
+    tableContainer.innerHTML = '';
+
+    results.forEach((res, idx) => {
+        const userCit = res.query_data.citizenship || '';
+        const isBlack = dynamicBlackList.includes(userCit);
+        const isGrey = dynamicGreyList.includes(userCit);
+        const hasGeoRisk = isBlack || isGrey;
+        
+        const alertHtml = hasGeoRisk ? '<span class="name-card-alert">⚠️ GEO RISK</span>' : '';
+        
+        cardContainer.innerHTML += `
+        <div class="name-card ${idx===0?'active':''}" onclick="showTable(${idx}, this)">
+            <div class="name-card-name">${res.query_data.name}</div>
+            <div class="name-card-matches">${res.match_count} matches</div>
+            ${alertHtml}
+        </div>`;
+    });
+
+    if(results.length > 0) showTable(0, document.querySelector('.name-card'));
+  }
+
+  function getMatchTypeLabel(scheme) {
+    const schemeMap = {
+      'NAME_DOB_CITIZENSHIP': 'Nama + DOB + Citizenship',
+      'NAME_DOB': 'Nama + DOB',
+      'NAME_CITIZENSHIP': 'Nama + Citizenship',
+      'NAME': 'Nama'
+    };
+    return schemeMap[scheme] || scheme || 'Match';
+  }
+
+  function showTable(index, cardEl) {
+    document.querySelectorAll('.name-card').forEach(c => c.classList.remove('active'));
+    if(cardEl) cardEl.classList.add('active');
+
+    const res = allResults[index];
+    const container = document.getElementById('resultsTableContainer');
+    const citizenCode = res.query_data.citizenship || '';
+    
+    const isBlackList = dynamicBlackList.includes(citizenCode);
+    const isGreyList = dynamicGreyList.includes(citizenCode);
+
+    let warningBox = '';
+    if (isBlackList || isGreyList) {
+        const type = isBlackList ? 'BLACK LIST (High Risk)' : 'GREY LIST (Increased Monitoring)';
+        warningBox = `
+        <div class="geo-warning-box">
+            <div style="font-size:1.5rem">🚫</div>
+            <div>
+                <strong>Peringatan Geografis:</strong>
+                Nasabah terdaftar sebagai warga negara <strong>${citizenCode}</strong> yang masuk dalam daftar <strong>${type}</strong> FATF.
+                <br><small>Harap lakukan Enhanced Due Diligence (EDD).</small>
+            </div>
+        </div>`;
+    }
+
+    if (res.match_count === 0) {
+        container.innerHTML = warningBox + `
+        <div style="text-align:center;padding:3rem;color:#888">
+            <div style="font-size:3rem">✓</div>
+            <div>Tidak ada kecocokan nama pada database sanksi.</div>
+        </div>`;
+        return;
+    }
+
+    let html = warningBox + `<div class="results-table-container"><table class="results-table"><thead>
+        <tr><th>#</th><th>Nama Sanksi</th><th>Skor Nama</th><th>Skor Akhir</th><th>Tipe Match</th><th>Action</th></tr></thead><tbody>`;
+        
+    res.matches.forEach((m, i) => {
+        const hasInsights = m.geographic_insights && m.geographic_insights.length > 0;
+        const matchType = getMatchTypeLabel(m.scheme);
+        
+        html += `
+        <tr>
+            <td>${i+1}</td>
+            <td><strong>${m.sanction_name}</strong><div style="font-size:0.8rem;color:#666">${m.sanction_id}</div></td>
+            <td><span class="score-badge ${getScoreClass(m.name_score)}">${m.name_score.toFixed(1)}%</span></td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="score-badge ${getScoreClass(m.final_score)}">${m.final_score.toFixed(1)}%</span>
+                <button class="score-breakdown-btn" onclick="toggleScoreBreakdown(this, '${index}-${i}')">
+                  <span class="arrow-icon">▼</span>
+                </button>
+              </div>
+              <div class="score-breakdown-content" id="breakdown-${index}-${i}">
+                <div class="breakdown-item">
+                  <span class="breakdown-label">Skor Nama:</span>
+                  <span class="breakdown-value">${m.name_score.toFixed(1)}%</span>
+                </div>
+                <div class="breakdown-item">
+                  <span class="breakdown-label">Skor DOB:</span>
+                  <span class="breakdown-value">${m.dob_score.toFixed(1)}%</span>
+                </div>
+                <div class="breakdown-item">
+                  <span class="breakdown-label">Skor Citizenship:</span>
+                  <span class="breakdown-value">${m.citizenship_score.toFixed(1)}%</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="match-type-badge">${matchType}</span></td>
+            <td>
+               ${hasInsights ? 
+               `<button class="geo-collapsible-btn" onclick="toggleGeoProfile(this, '${index}-${i}')">
+                  <span class="arrow-icon">▼</span> Details
+                </button>` : '-'}
+            </td>
+        </tr>`;
+
+        if (hasInsights) {
+            // ... (Kode insight sama seperti sebelumnya) ...
+            let boxes = [];
+            let userInsight = null;
+            let matchInsight = null;
+            let sameInsight = null;
+
+            m.geographic_insights.forEach(txt => {
+                const cleanTxt = txt.replace(/⚠️|ℹ️|🚩|\*/g, '').trim();
+                if (cleanTxt.includes('Risiko Yurisdiksi Sama')) sameInsight = cleanTxt;
+                else if (cleanTxt.includes('Risiko Nasabah')) userInsight = cleanTxt;
+                else if (cleanTxt.includes('Risiko Entitas')) matchInsight = cleanTxt;
+                else if (cleanTxt.includes('Risiko Lokasi')) userInsight = cleanTxt;
+            });
+
+            if (sameInsight) {
+                const color = sameInsight.includes('Black List') ? '#dc2626' : '#f59e0b';
+                boxes.push(`
+                <div class="geo-insight-box">
+                    <div class="geo-insight-country" style="background-color:${color}">Risiko Gabungan</div>
+                    <div class="geo-insight-title">⚠️ Yurisdiksi Sama</div>
+                    <div class="geo-insight-text">${sameInsight}</div>
+                </div>`);
+            } else {
+                if (userInsight) {
+                    const color = userInsight.includes('Black List') ? '#dc2626' : '#f59e0b';
+                    boxes.push(`
+                    <div class="geo-insight-box">
+                        <div class="geo-insight-country" style="background-color:${color}">Risiko Nasabah</div>
+                        <div class="geo-insight-title">⚠️ High Risk Input</div>
+                        <div class="geo-insight-text">${userInsight}</div>
+                    </div>`);
+                }
+                if (matchInsight) {
+                    const color = matchInsight.includes('Black List') ? '#dc2626' : '#f59e0b';
+                    boxes.push(`
+                    <div class="geo-insight-box">
+                        <div class="geo-insight-country" style="background-color:${color}">Risiko Entitas</div>
+                        <div class="geo-insight-title">⚠️ High Risk Match</div>
+                        <div class="geo-insight-text">${matchInsight}</div>
+                    </div>`);
+                }
+            }
+
+            let contentHtml = '';
+            if (boxes.length > 0) {
+                const gridClass = boxes.length > 1 ? 'geo-insights-container' : 'geo-insights-container single';
+                contentHtml = `<div class="${gridClass}">${boxes.join('')}</div>`;
+            } else {
+                contentHtml = `<ul class="geo-insights-list">${m.geographic_insights.map(x => `<li>${x.replace(/^⚠️\s*/, '')}</li>`).join('')}</ul>`;
+            }
+
+            if (m.match_details) {
+                const matchDetailsHtml = parseMatchDetails(m.match_details);
+                if (matchDetailsHtml) {
+                    contentHtml += matchDetailsHtml;
+                }
+            }
+
+            html += `
+            <tr style="display:none" class="geo-profile-row-${index}-${i}">
+                <td colspan="6" style="padding:0;border:none">
+                    <div class="geo-profiling-section" id="geo-profile-${index}-${i}">
+                        <div class="geo-profiling-content">${contentHtml}</div>
+                    </div>
+                </td>
+            </tr>`;
+        }
+    });
+    
+    container.innerHTML = html + '</tbody></table></div>';
+  }
+
+  function toggleScoreBreakdown(btn, id) {
+    const content = document.getElementById(`breakdown-${id}`);
+    btn.classList.toggle('expanded');
+    content.classList.toggle('expanded');
+  }
+
+  function toggleGeoProfile(btn, id) {
+    const row = document.querySelector(`.geo-profile-row-${id}`);
+    const section = document.getElementById(`geo-profile-${id}`);
+    
+    if (btn.classList.contains('expanded')) {
+        btn.classList.remove('expanded');
+        section.classList.remove('expanded');
+        setTimeout(() => row.style.display = 'none', 300);
+    } else {
+        row.style.display = 'table-row';
+        setTimeout(() => {
+            btn.classList.add('expanded');
+            section.classList.add('expanded');
+        }, 10);
+    }
+  }
+
+  function getScoreClass(score) {
+    if(score >= 80) return 'score-high';
+    if(score >= 60) return 'score-medium';
+    return 'score-low';
+  }
+
+  function composeDOB(year, month, day) {
+  if (!year) return null; // Tidak isi DOB sama sekali → OK
+
+  // Validasi dasar
+  if (!/^\d{4}$/.test(year)) {
+    throw new Error('Tahun harus 4 digit');
+  }
+
+  if (day && !month) {
+    throw new Error('Tanggal tidak boleh diisi tanpa bulan');
+  }
+
+  let dob = year;
+
+  if (month) {
+    if (!/^(0[1-9]|1[0-2])$/.test(month)) {
+      throw new Error('Bulan harus antara 01–12');
+    }
+    dob += `-${month}`;
+  }
+
+  if (day) {
+    if (!/^(0[1-9]|[12][0-9]|3[01])$/.test(day)) {
+      throw new Error('Tanggal harus antara 01–31');
+    }
+    dob += `-${day}`;
+  }
+
+  return dob;
+}
+
+function parseMatchDetails(matchDetailsStr) {
+    if (!matchDetailsStr || matchDetailsStr === 'Full Match' || matchDetailsStr.trim() === '') {
+      return '';
+    }
+
+    const parts = matchDetailsStr.split('|').map(p => p.trim()).filter(p => p);
+    if (parts.length === 0) return '';
+
+    let boxes = [];
+
+    parts.forEach(part => {
+      let detailType = '';
+      let detailText = '';
+
+      if (part.includes('DOB:')) {
+        detailType = 'Tanggal Lahir (DOB)';
+        detailText = part.replace('DOB:', '').trim();
+      } else if (part.includes('Citizenship:')) {
+        detailType = 'Kewarganegaraan (Citizenship)';
+        detailText = 'Match: ' + part.replace('Citizenship:', '').trim();
+      } else if (part.includes('Name:')) {
+        detailType = 'Nama';
+        detailText = part.replace('Name:', '').trim();
+      } else {
+        return;
+      }
+
+      boxes.push(`
+        <div class="match-detail-box">
+          <div class="match-detail-type">⚙️ ${detailType}</div>
+          <div class="match-detail-title">Detail Kesamaan</div>
+          <div class="match-detail-text">${detailText}</div>
+        </div>
+      `);
+    });
+
+    if (boxes.length === 0) return '';
+
+    const gridClass = boxes.length > 1 ? 'match-details-container' : 'match-details-container single';
+    return `<div style="margin-top: 1.5rem; border-top: 1px solid rgba(14, 165, 233, 0.2); padding-top: 1.5rem;">
+              <h4 style="margin: 0 0 1rem 0; font-size: 0.95rem; color: var(--text-primary);">📋 Detail Kesamaan</h4>
+              <div class="${gridClass}">${boxes.join('')}</div>
+            </div>`;
+  }
+
+
+  // === SUBMIT HANDLER ===
   document.getElementById('bulkSearchForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-
     const rows = document.querySelectorAll('.query-row');
     const queries = [];
 
     rows.forEach(row => {
-      const name = row.querySelector('.query-name').value.trim();
-      const dob = row.querySelector('.query-dob').value;
-      const citizenshipInput = row.querySelector('.query-citizenship');
-      const citizenship = citizenshipInput.dataset.selectedCode || '';
+        const name = row.querySelector('.query-name').value.trim();
+        const inputGeo = row.querySelector('.query-citizenship');
+        // Fallback: ambil kode ISO dari dataset atau input manual
+        const citizenship = inputGeo.dataset.selectedCode || inputGeo.value.trim();
+        
+        const year = row.querySelector('.dob-year').value.trim();
+        const month = row.querySelector('.dob-month').value.trim();
+        const day = row.querySelector('.dob-day').value.trim();
 
-      if (!name) return;
+        let dateOfBirth = null;
+        try {
+          dateOfBirth = composeDOB(year, month, day);
+        } catch (err) {
+          alert(err.message);
+          return;
+        }
 
-      const query = { name };
-      if (dob) query.date_of_birth = dob;
-      if (citizenship) query.citizenship = citizenship;
+        
+        if (dateOfBirth) {
+          const dobPattern = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+          if (!dobPattern.test(dateOfBirth)) {
+            alert('Format tanggal tidak valid. Gunakan YYYY, YYYY-MM, atau YYYY-MM-DD');
+            return;
+          }
+        }
 
-      queries.push(query);
+        if (name) {
+            queries.push({ 
+                name, 
+                date_of_birth: dateOfBirth,
+                citizenship: citizenship 
+            });
+        }
     });
 
     if (queries.length === 0) {
-      alert('Harap masukkan minimal satu nama nasabah!');
-      return;
+        alert('Masukkan minimal satu nama nasabah');
+        return;
     }
 
     const submitBtn = document.getElementById('submitBtn');
@@ -912,279 +795,19 @@
     loadingState.classList.add('show');
 
     try {
-      const response = await fetch('/api/screening/quick-search-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queries })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Terjadi kesalahan saat screening');
-      }
-
-      displayResults(data);
-
-    } catch (error) {
-      console.error('[v0] Error submitting search:', error);
-      alert('Gagal melakukan screening: ' + error.message);
+        const res = await fetch('/api/screening/quick-search-bulk', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({queries})
+        });
+        const data = await res.json();
+        displayResults(data.results || []);
+    } catch (err) {
+        alert("Gagal: " + err.message);
     } finally {
-      submitBtn.disabled = false;
-      loadingState.classList.remove('show');
+        submitBtn.disabled = false;
+        loadingState.classList.remove('show');
     }
   });
-
-  let allResults = [];
-  let selectedCardIndex = 0;
-
-  function displayResults(data) {
-    const resultsContainer = document.getElementById('resultsContainer');
-    const nameCardsContainer = document.getElementById('nameCardsContainer');
-    const resultsTableContainer = document.getElementById('resultsTableContainer');
-    const resultsInfo = document.getElementById('resultsInfo');
-
-    // Clear previous results
-    nameCardsContainer.innerHTML = '';
-    resultsTableContainer.innerHTML = '';
-    resultsContainer.style.display = 'block';
-
-    if (!data || !data.results) {
-      resultsInfo.innerHTML = 'Tidak ada hasil yang diterima.';
-      return;
-    }
-
-    const { results } = data;
-    allResults = results;
-    
-    let totalMatches = 0;
-    results.forEach(r => totalMatches += (r.match_count || 0));
-    resultsInfo.innerHTML = `Diproses <strong>${results.length}</strong> nasabah, ditemukan <strong>${totalMatches}</strong> matches.`;
-
-    // Generate horizontal cards for each query
-    results.forEach((result, index) => {
-      const queryName = result.query_data?.name || 'Unknown';
-      const matchCount = result.match_count || 0;
-
-      const card = document.createElement('div');
-      card.className = `name-card ${index === 0 ? 'active' : ''}`;
-      card.onclick = () => selectCard(index);
-      card.innerHTML = `
-        <div class="name-card-name">${queryName}</div>
-        <div class="name-card-matches">${matchCount} matches</div>
-      `;
-      nameCardsContainer.appendChild(card);
-    });
-
-    // Display table for first card
-    displayTableForCard(0);
-  }
-
-  function selectCard(index) {
-    selectedCardIndex = index;
-    
-    // Update active state
-    const cards = document.querySelectorAll('.name-card');
-    cards.forEach((card, i) => {
-      card.classList.toggle('active', i === index);
-    });
-
-    // Display table for selected card
-    displayTableForCard(index);
-  }
-
-  function getScoreClass(score) {
-    if (score >= 80) return 'score-high';
-    if (score >= 60) return 'score-medium';
-    return 'score-low';
-  }
-
-  function displayTableForCard(index) {
-    const resultsTableContainer = document.getElementById('resultsTableContainer');
-    const result = allResults[index];
-
-    if (!result) return;
-
-    const matchCount = result.match_count || 0;
-
-    if (matchCount === 0) {
-      resultsTableContainer.innerHTML = `
-        <div style="text-align: center; padding: 3rem; color: var(--text-light);">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">✓</div>
-          <div style="font-size: 1.1rem; font-weight: 500; color: var(--text-primary);">Aman (No Match)</div>
-        </div>
-      `;
-      return;
-    }
-
-    let html = `
-      <div class="results-table-container">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th style="width: 50px;">#</th>
-              <th>Nama (Sanction)</th>
-              <th style="width: 130px;">Skor Nama</th>
-              <th style="width: 150px;">Skor Akhir</th>
-              <th style="width: 100px;"></th>
-            </tr>
-          </thead>
-          <tbody>`;
-
-    result.matches.forEach((match, idx) => {
-      const nameScore = (match.name_score || 0).toFixed(1);
-      const finalScore = (match.final_score || 0).toFixed(1);
-      const nameScoreClass = getScoreClass(match.name_score || 0);
-      const finalScoreClass = getScoreClass(match.final_score || 0);
-      
-      const hasGeoInsights = match.geographic_insights && match.geographic_insights.length > 0;
-      
-      html += `
-        <tr>
-          <td>${idx + 1}</td>
-          <td>
-            <span class="entity-name">${match.sanction_name}</span>
-            <div class="entity-meta">ID: ${match.sanction_id} | ${match.sanction_source || '-'}</div>
-          </td>
-          <td>
-            <span class="score-badge ${nameScoreClass}">${nameScore}%</span>
-          </td>
-          <td class="score-cell">
-            <span class="score-badge ${finalScoreClass}">${finalScore}%</span>
-            <button class="score-breakdown-btn" onclick="toggleScoreBreakdown(event, 'score-${index}-${idx}')">
-              <span class="arrow-icon">▼</span> Rincian
-            </button>
-            <div class="score-breakdown-section" id="score-${index}-${idx}">
-              <div class="score-breakdown-content">
-                <div class="score-breakdown-item">
-                  <span class="score-breakdown-label">Skor Nama</span>
-                  <span class="score-breakdown-value">${nameScore}%</span>
-                </div>
-                ${match.dob_score !== null && match.dob_score !== undefined ? `
-                <div class="score-breakdown-item">
-                  <span class="score-breakdown-label">Skor Tanggal Lahir</span>
-                  <span class="score-breakdown-value">${(match.dob_score || 0).toFixed(1)}%</span>
-                </div>` : ''}
-                ${match.citizenship_score !== null && match.citizenship_score !== undefined ? `
-                <div class="score-breakdown-item">
-                  <span class="score-breakdown-label">Skor Kewarganegaraan</span>
-                  <span class="score-breakdown-value">${(match.citizenship_score || 0).toFixed(1)}%</span>
-                </div>` : ''}
-                <div class="score-breakdown-item" style="border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.25rem;">
-                  <span class="score-breakdown-label" style="font-weight: 600;">Skor Akhir</span>
-                  <span class="score-breakdown-value" style="font-size: 1.05em; color: var(--primary-accent);">${finalScore}%</span>
-                </div>
-              </div>
-            </div>
-          </td>
-          <td style="text-align: right;">
-            ${hasGeoInsights ? 
-              `<button class="geo-collapsible-btn" onclick="toggleGeoProfile(this, '${result.request_id}-${idx}')"><span class="arrow-icon">▼</span> Details</button>` 
-              : '<span style="font-size: 0.8rem; color: var(--text-light);">—</span>'}
-          </td>
-        </tr>`;
-        
-      if (hasGeoInsights) {
-        html += `
-        <tr style="display: none;" class="geo-profile-row-${result.request_id}-${idx}">
-          <td colspan="5" style="padding: 0; border: none;">
-            <div class="geo-profiling-section" id="geo-profile-${result.request_id}-${idx}">
-              <div class="geo-profiling-content">`;
-              
-        const queryData = result.query_data || {};
-        const userCitizenship = queryData.citizenship || '?';
-
-        if (match.sanction_citizenship) {
-          html += `
-                <div class="geo-item">
-                  <div class="geo-item-icon">📍</div>
-                  <div class="geo-item-content">
-                    <div class="geo-item-label">Registrasi Kewarganegaraan</div>
-                    <div class="geo-item-value">${userCitizenship} <span style="color: var(--text-light); margin: 0 0.5rem;">→</span> ${match.sanction_citizenship}</div>
-                  </div>
-                </div>`;
-        }
-        
-        html += `
-                <div class="geo-insights-box">
-                  <strong>⚠️ Geographic Insights</strong>
-                  <ul class="geo-insights-list">
-                    ${match.geographic_insights.map(insight => {
-                      const cleanInsight = insight.replace(/^⚠️\s*/, '');
-                      return `<li>${cleanInsight}</li>`;
-                    }).join('')}
-                  </ul>
-                </div>
-                <div class="geo-item">
-                  <div class="geo-item-icon">🏛️</div>
-                  <div class="geo-item-content">
-                    <div class="geo-item-label">Scheme</div>
-                    <div class="geo-item-value">${match.scheme || 'N/A'}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </td>
-        </tr>`;
-      }
-    });
-    
-    html += `
-          </tbody>
-        </table>
-      </div>`;
-    
-    resultsTableContainer.innerHTML = html;
-  }
-
-  function toggleScoreBreakdown(event, breakdownId) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const button = event.currentTarget;
-    const breakdown = document.getElementById(breakdownId);
-    
-    if (!breakdown) return;
-    
-    const isExpanded = button.classList.contains('expanded');
-    
-    if (isExpanded) {
-      button.classList.remove('expanded');
-      breakdown.classList.remove('expanded');
-    } else {
-      button.classList.add('expanded');
-      breakdown.classList.add('expanded');
-    }
-  }
-
-  function toggleGeoProfile(button, matchId) {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const geoRow = document.querySelector(`.geo-profile-row-${matchId}`);
-    const geoProfile = document.getElementById(`geo-profile-${matchId}`);
-    
-    if (!geoRow || !geoProfile) {
-      console.log('[v0] Geo profile elements not found:', matchId);
-      return;
-    }
-    
-    const isExpanded = button.classList.contains('expanded');
-    
-    if (isExpanded) {
-      button.classList.remove('expanded');
-      geoProfile.classList.remove('expanded');
-      setTimeout(() => {
-        geoRow.style.display = 'none';
-      }, 300);
-    } else {
-      geoRow.style.display = 'table-row';
-      setTimeout(() => {
-        geoProfile.classList.add('expanded');
-        button.classList.add('expanded');
-      }, 10);
-    }
-  }
 </script>
-{% endblock content %}
-
+{% endblock %}

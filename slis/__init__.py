@@ -17,6 +17,7 @@ def create_app(config_class=DevConfig):
     from slis.routes.sanctions import sanctions_bp
     from slis.routes.screening import screening_bp
     from slis.routes.web import web_bp
+    from slis.blueprints.geo import geo_bp
 
 
     app.register_blueprint(transactions_bp, url_prefix="/api/batches")
@@ -24,5 +25,6 @@ def create_app(config_class=DevConfig):
     app.register_blueprint(screening_bp, url_prefix='/api/screening')
     
     app.register_blueprint(web_bp)
+    app.register_blueprint(geo_bp)
 
     return app
